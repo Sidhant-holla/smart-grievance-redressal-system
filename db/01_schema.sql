@@ -50,7 +50,9 @@ CREATE TABLE users (
     created_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
     CONSTRAINT chk_user_name  CHECK (length(trim(full_name)) >= 2),
     CONSTRAINT chk_user_email CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
-    CONSTRAINT chk_user_role  CHECK (role IN ('citizen', 'staff', 'dept_head', 'admin'))
+    CONSTRAINT chk_user_role  CHECK (role IN ('citizen', 'staff', 'dept_head', 'admin')),
+    -- must look like a bcrypt hash, so a plain password can never be stored by mistake
+    CONSTRAINT chk_user_password CHECK (password_hash ~ '^\$2[aby]\$[0-9]{2}\$[./A-Za-z0-9]{53}$')
 );
 
 -- emails must be unique ignoring case (Rahul@x.com and rahul@x.com are the same person)

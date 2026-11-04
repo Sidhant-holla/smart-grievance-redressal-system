@@ -7,6 +7,9 @@ const { Client } = require('pg');
 
 process.loadEnvFile(path.join(__dirname, '..', '.env.local'));
 
+// same shape as a real bcrypt hash, so tests of other rules are not stopped by chk_user_password
+const FAKE_HASH = '$2a$10$' + 'a'.repeat(53);
+
 const results = [];
 let db;
 
@@ -78,9 +81,11 @@ async function main() {
   await expectError('Invalid email format is rejected',
     `INSERT INTO users (full_name, email, password_hash) VALUES ('Test User', 'not-an-email', 'x')`, [], 'chk_user_email');
   await expectError('Same email with different case is rejected',
-    `INSERT INTO users (full_name, email, password_hash) VALUES ('Test User', 'ANANYA@student.campus.edu', 'x')`, [], 'idx_users_email_lower');
+    `INSERT INTO users (full_name, email, password_hash) VALUES ('Test User', 'ANANYA@student.campus.edu', $1)`, [FAKE_HASH], 'idx_users_email_lower');
+  await expectError('Plain text password is rejected',
+    `INSERT INTO users (full_name, email, password_hash) VALUES ('Test User', 'plain@campus.edu', 'Password@123')`, [], 'chk_user_password');
   await expectError('Unknown role is rejected',
-    `INSERT INTO users (full_name, email, password_hash, role) VALUES ('Test', 't@x.com', 'x', 'superuser')`, [], 'chk_user_role');
+    `INSERT INTO users (full_name, email, password_hash, role) VALUES ('Test', 't@x.com', $1, 'superuser')`, [FAKE_HASH], 'chk_user_role');
   await expectError('Too short description is rejected',
     `INSERT INTO tickets (title, description, dept_id, created_by) VALUES ('Broken fan', 'fan broken', $1, $2)`, [itDept, citizen], 'chk_ticket_description');
   await expectError('Invalid priority is rejected',

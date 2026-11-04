@@ -15,7 +15,7 @@ export default function HomePage() {
             Login
           </Link>
           <Link href="/register" className="btn secondary">
-            Register as Citizen
+            Create an account
           </Link>
         </div>
       </div>

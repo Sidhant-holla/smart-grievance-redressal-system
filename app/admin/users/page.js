@@ -62,7 +62,7 @@ export default function UsersPage() {
   return (
     <>
       <h1>Users</h1>
-      <p className="subtitle">Citizens register themselves. Staff, department heads and admins are created here.</p>
+      <p className="subtitle">Create an account with any role, or activate and deactivate existing users.</p>
 
       {error && <div className="error">{error}</div>}
       {message && <div className="success-msg">{message}</div>}
@@ -113,7 +113,7 @@ export default function UsersPage() {
         </div>
 
         <div className="card">
-          <h2>Add staff / head / admin</h2>
+          <h2>Add a user</h2>
           <form onSubmit={createUser}>
             <label>Full name</label>
             <input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} required />
@@ -129,11 +129,12 @@ export default function UsersPage() {
             />
             <label>Role</label>
             <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+              <option value="citizen">Citizen</option>
               <option value="staff">Staff</option>
               <option value="dept_head">Department head</option>
               <option value="admin">Admin</option>
             </select>
-            {form.role !== 'admin' && (
+            {(form.role === 'staff' || form.role === 'dept_head') && (
               <>
                 <label>Department</label>
                 <select value={form.deptId} onChange={(e) => setForm({ ...form, deptId: e.target.value })} required>

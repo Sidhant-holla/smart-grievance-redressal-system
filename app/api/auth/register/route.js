@@ -1,30 +1,28 @@
 import { NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
-import { query } from '@/lib/db';
 import { createToken, setLoginCookie } from '@/lib/auth';
 import { jsonError, dbError } from '@/lib/api';
+import { accountProblem, createAccount, HOME_PAGE } from '@/lib/users';
 
-// Public sign-up is only for citizens (students). Staff, heads and admins
-// are created by the admin from the Users page.
+// Anyone can sign up as a citizen. Staff, head and admin accounts also need
+// the access code from STAFF_SIGNUP_CODE, otherwise anyone who opens the site
+// could make themselves an admin. If the code is not set, those roles are
+// turned off here (the admin can still create them from the Users page).
 export async function POST(request) {
-  const { fullName, email, password } = await request.json();
+  const { fullName, email, password, role = 'citizen', deptId, designation, signupCode } = await request.json();
 
-  if (!fullName || !email || !password) return jsonError('All fields are required');
-  // the database only ever sees the hash, so password length is checked here
-  if (password.length < 8) return jsonError('Password must be at least 8 characters');
+  const problem = accountProblem({ fullName, email, password, role, deptId });
+  if (problem) return jsonError(problem);
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  if (role !== 'citizen') {
+    const code = process.env.STAFF_SIGNUP_CODE;
+    if (!code) return jsonError('Staff sign-up is turned off. Set STAFF_SIGNUP_CODE in .env.local and restart the app.', 403);
+    if (signupCode !== code) return jsonError('Wrong access code', 403);
+  }
 
   try {
-    // name and email format are validated by CHECK constraints in the users table
-    const result = await query(
-      `INSERT INTO users (full_name, email, password_hash, role)
-       VALUES ($1, $2, $3, 'citizen')
-       RETURNING user_id, full_name, role`,
-      [fullName.trim(), email.trim(), passwordHash]
-    );
-    const token = await createToken(result.rows[0]);
-    const response = NextResponse.json({ redirect: '/citizen' }, { status: 201 });
+    const user = await createAccount({ fullName, email, password, role, deptId, designation });
+    const token = await createToken(user);
+    const response = NextResponse.json({ redirect: HOME_PAGE[role] }, { status: 201 });
     setLoginCookie(response, token);
     return response;
   } catch (err) {

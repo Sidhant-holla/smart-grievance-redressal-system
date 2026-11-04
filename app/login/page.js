@@ -53,7 +53,7 @@ export default function LoginPage() {
         </form>
 
         <p className="muted" style={{ marginTop: 16 }}>
-          New here? <Link href="/register">Create a citizen account</Link>
+          New here? <Link href="/register">Create an account</Link>
         </p>
       </div>
 

@@ -18,6 +18,7 @@ Output on PostgreSQL 18.1 + pgvector 0.8.1:
 --- Constraints (data validation at database level) ---
 PASS  Invalid email format is rejected  ->  chk_user_email
 PASS  Same email with different case is rejected  ->  idx_users_email_lower
+PASS  Plain text password is rejected  ->  chk_user_password
 PASS  Unknown role is rejected  ->  chk_user_role
 PASS  Too short description is rejected  ->  chk_ticket_description
 PASS  Invalid priority is rejected  ->  chk_ticket_priority
@@ -51,7 +52,7 @@ PASS  WITH claim_ticket (FOR UPDATE): first wins, second gets a clear error  -> 
 
 --- Views / aggregate correctness ---
 PASS  v_department_stats totals match COUNT(*) on tickets
-PASS  Naive JOIN with history over-counts (why the view avoids it)  ->  JOIN gives 35 rows, real ticket count is 8
+PASS  Naive JOIN with history over-counts (why the view avoids it)  ->  JOIN gives 34 rows, real ticket count is 8
 
 --- Vector similarity (pgvector) ---
 PASS  Re-worded hostel internet complaint finds the existing open ticket  ->  #44 "No internet connection in my hostel room" similarity 0.790
@@ -64,7 +65,7 @@ PASS  suggest_department -> Campus Maintenance  ->  got "Campus Maintenance" (sc
 --- Full-text search vs semantic search ---
 PASS  Keyword search needs exact words, semantic search finds related wording  ->  keyword: 0 results, semantic: 2 open results
 
-35 / 35 tests passed
+36 / 36 tests passed
 ```
 
 ### Problems the tests found (and what we changed)
@@ -81,9 +82,28 @@ PASS  Keyword search needs exact words, semantic search finds related wording  -
 | Browser test: the form promised followers a notification, but only the ticket owner got one. | `ticket_after_change` now notifies everyone in `ticket_supporters`. |
 | Browser test: "Withdraw" never appeared, because auto-assign moves a ticket to ASSIGNED straight away. | Added the ASSIGNED → CLOSED transition. A ticket can be withdrawn until work starts. |
 | Code review: because moves to CLOSED are allowed for withdrawing, `close` also worked on an open ticket through the API. | The API only allows `close` on RESOLVED tickets and `withdraw` on OPEN / ASSIGNED ones. |
+| Teammate report: admin, staff and head accounts made by hand in SQL could not use the site. A plain password was accepted but could never log in, staff without a `staff` row saw an empty queue, and heads got "deptId is required". Without seed data there was no admin at all, so the GUI could not create these roles. | Added the `chk_user_password` constraint, a clear login message for staff with no department, and `npm run create-user` for creating any role from the terminal. |
+| Teammate request: the website could only create student accounts. | The Register page now offers all 4 roles, with an access code for staff, head and admin. The admin Users page can also create citizens. |
 | Simulated failure: if the embedding model could not load, the route had no error handling and the form could stay stuck on "Checking...". | The API returns a 503 with a readable message and the form shows it. |
 
-## 2. API / end-to-end tests (manual, with curl against `next start`)
+## 2. Account creation tests
+
+| Test | Result |
+|---|---|
+| Empty database (no seed): `create-user` makes an admin, who logs in and adds a department | ✔ |
+| `create-user` for staff and head in that department, then login and open their pages | ✔ |
+| `create-user` with an unknown department, a missing department, or a duplicate email | Clear error, nothing created ✔ |
+| All 19 seeded admin, head and staff accounts log in and load their home page and data | 19 / 19 ✔ |
+| Staff, head and admin created through the admin Users API log in and load their pages | ✔ |
+| Empty database, real browser: register an admin with the access code, add a department, register staff and a head in it, register a citizen | All log in and land on their own pages, and the head is set in `departments.head_id` ✔ |
+| Register as admin with a wrong code, no code, or an empty code (form and direct API calls) | 403, no account created ✔ |
+| Register with a made-up role | 400 ✔ |
+| Register as staff with no department, or a department that does not exist | 400, no account created ✔ |
+| `STAFF_SIGNUP_CODE` left empty, then register as admin with an empty code | 403 "turned off", citizens can still register ✔ |
+| SQL `INSERT` with a plain password | Rejected by `chk_user_password` ✔ |
+| Staff or head with no `staff` row tries to log in | 403 with a clear message ✔ |
+
+## 3. API / end-to-end tests (manual, with curl against `next start`)
 
 | # | Test | Expected | Result |
 |---|---|---|---|
@@ -119,7 +139,7 @@ PASS  Keyword search needs exact words, semantic search finds related wording  -
 | Not logged in opens `/staff` | redirect to `/login` | 307 → /login ✔ |
 | Staff opens `/head` | redirect to `/staff` | 307 → /staff ✔ |
 
-## 3. Index usage
+## 4. Index usage
 
 From `db/04_important_queries.sql` (with `enable_seqscan = off`, because with only 44 rows the planner would otherwise choose a sequential scan):
 

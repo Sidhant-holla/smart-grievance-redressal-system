@@ -32,7 +32,7 @@ The data is there, but no process is enforced around it.
 
 | Role | Can do |
 |---|---|
-| **Citizen** (student) | Register / login; raise a complaint; see similar open complaints and "support" one instead of filing a duplicate; track own and supported tickets and get notified of status changes; comment; withdraw a ticket until work has started; close a RESOLVED ticket with a rating or reopen it with a reason |
+| **Citizen** (student) | Register freely / login; raise a complaint; see similar open complaints and "support" one instead of filing a duplicate; track own and supported tickets and get notified of status changes; comment; withdraw a ticket until work has started; close a RESOLVED ticket with a rating or reopen it with a reason |
 | **Staff** | See their department's queue (assigned to me / unassigned / all); pick up an unassigned ticket; start work; resolve with a note; comment (public or internal); set availability for auto-assignment; keyword and semantic search |
 | **Department Head** | Everything staff can do, plus assign or re-assign tickets to department staff, resolve escalated tickets, and view the department dashboard (stats, workload, needs-attention list, slow tickets) |
 | **Admin** | System dashboard (all departments, weekly trend, SLA-missing departments, most reported issues, top staff); browse all tickets; create departments and change SLA/head; create staff/head/admin users; deactivate users; run the escalation check manually |
@@ -209,7 +209,7 @@ Underline = primary key, *italics* = foreign key.
 | user_id | SERIAL | PK | |
 | full_name | VARCHAR(100) | NOT NULL, CHECK length ≥ 2 | |
 | email | VARCHAR(120) | NOT NULL, CHECK regex, UNIQUE on lower(email) | Login id; case-insensitive unique |
-| password_hash | VARCHAR(100) | NOT NULL | bcrypt hash (10 rounds) |
+| password_hash | VARCHAR(100) | NOT NULL, CHECK bcrypt format | bcrypt hash (10 rounds); a plain password is rejected |
 | role | VARCHAR(20) | NOT NULL, CHECK IN (citizen, staff, dept_head, admin) | |
 | is_active | BOOLEAN | NOT NULL DEFAULT TRUE | Deactivated users cannot log in |
 | created_at | TIMESTAMPTZ | NOT NULL | |
@@ -371,17 +371,19 @@ The functions always return *something*, so we checked the scores by hand:
 
 ## 13. Security
 
-- Passwords are stored only as **bcrypt** hashes. The minimum length (8) is checked in the API, because the database never sees the plain password.
+- Passwords are stored only as **bcrypt** hashes, and a CHECK constraint rejects anything that is not one. The minimum length (8) is checked in the API, because the database never sees the plain password.
+- **Registering a privileged role needs an access code.** Anyone can register as a citizen, but staff, head and admin sign-ups must give `STAFF_SIGNUP_CODE`, which is kept in `.env.local` and checked on the server. Otherwise anyone who opened the site could make themselves an admin. If the code is not set, those sign-ups are turned off, and an admin can still create accounts from the Users page.
 - The login session is a **JWT in an httpOnly, SameSite=Lax cookie** (8 h expiry), so JavaScript in the page can't read it.
 - **Role checks happen twice:** `middleware.js` for pages, and `requireRole()` in every API route. Data scoping happens in SQL: staff only see their department, citizens only see their own and supported tickets, and citizens never get internal notes.
 - **All queries are parameterised** (`$1, $2`), so user input is never concatenated into SQL.
 - `DATABASE_URL` and `JWT_SECRET` come from `.env.local`, which is git-ignored. The app connects as `grievance_app`, a normal role that owns its database, not the postgres superuser.
 - Login gives the same error for an unknown email and a wrong password.
 - Users are deactivated, not deleted, so their history stays intact.
+- The role is stored in the login cookie, so a change to a user's role or active status only takes effect at their next login (at most 8 hours later).
 
 ## 14. Testing
 
-See [TESTING.md](TESTING.md): 35 automated database tests plus manual API/UI tests.
+See [TESTING.md](TESTING.md): 36 automated database tests plus manual API/UI tests.
 
 ## 15. Conclusion and Future Enhancements
 

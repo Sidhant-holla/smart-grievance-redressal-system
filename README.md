@@ -9,7 +9,7 @@ A university complaint system built around the **ticket lifecycle**. Every ticke
 
 ## Features
 
-- **4 roles**: Citizen (student), Staff, Department Head, Admin
+- **4 roles**: Citizen (student), Staff, Department Head, Admin. All of them can be created from the website
 - **Enforced state machine**: invalid status changes, cross-department assignment and edits to closed tickets are rejected *by the database*
 - **SLA escalation**: each department has an SLA (HIGH priority gets half). Overdue tickets are escalated, the head is notified, and admins are notified on a second breach
 - **Duplicate detection**: before submitting, the citizen sees similar open complaints and can "support" one instead of filing a new one
@@ -47,7 +47,8 @@ db/
 scripts/
   setup-db.js                runs the SQL files in order
   seed.js, seed-data.js      sample departments, users, 44 tickets (through the real workflow)
-  test-db.js                 35 database tests
+  test-db.js                 36 database tests
+  create-user.js             creates an admin, staff, head or citizen account
 lib/                         db pool, auth, embeddings, escalation helper
 app/                         pages (citizen, staff, head, admin, tickets) and app/api routes
 components/                  Navbar, TicketTable, TicketBrowser, DepartmentDashboard
@@ -137,21 +138,23 @@ cp .env.example .env.local
 ```
 (`cp` works in PowerShell and Git Bash. In the old Command Prompt use `copy`.)
 
-Open `.env.local` and fill in both values:
+Open `.env.local` and fill in the values:
 ```
 DATABASE_URL=postgresql://grievance_app:choose_a_password@localhost:5432/grievance_db
 JWT_SECRET=<any long random string>
+STAFF_SIGNUP_CODE=<a code you choose>
 ```
 - The password must match the one from step 2. Avoid symbols like `@` or `/` in it, because they break the URL.
 - To generate a `JWT_SECRET`, run: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
-- `.env.local` is git-ignored, so never commit it.
+- `STAFF_SIGNUP_CODE` is the access code for registering as staff, head or admin. Leave it empty to turn that off. Citizens never need it.
+- `.env.local` is git-ignored, so never commit it. Restart the app after changing it.
 
 ### Step 4: Create the tables and sample data
 
 ```bash
 npm run db:setup     # creates tables, views, functions, triggers (WARNING: deletes existing data)
 npm run db:seed      # adds 27 users and 44 tickets (downloads the model the first time)
-npm run db:test      # optional: runs the 35 database tests
+npm run db:test      # optional: runs the 36 database tests
 ```
 
 ### Step 5: Start the app
@@ -181,9 +184,40 @@ git pull
 npm install
 npm run db:setup     # only needed if files in db/ changed (this deletes your data)
 npm run db:seed
+npm run dev          # stop the old one with Ctrl + C first
 ```
 
+Also compare `.env.local` with `.env.example` and add any new settings. For example, `STAFF_SIGNUP_CODE` must be set before staff, heads and admins can register, and the app must be restarted after changing `.env.local`.
+
 To reset the demo data at any time, run `npm run db:setup` and then `npm run db:seed`.
+
+### Creating admin, staff and department head accounts
+
+Every role can be created from the website:
+
+1. **Register page:** choose the account type. Citizens can sign up freely. Staff, head and admin accounts need the access code (`STAFF_SIGNUP_CODE` in `.env.local`), so that random visitors can't make themselves an admin. Staff and heads also pick their department.
+2. **Admin website:** log in as admin → *Users* → *Add a user*. No access code is needed here.
+
+On an empty database, register the admin first, add departments from the admin *Departments* page, and then register staff and heads.
+
+You can also use:
+
+3. **Seed data:** `npm run db:seed` creates one admin, 7 heads and 11 staff. See [Demo Accounts](#demo-accounts).
+4. **Terminal script:** does the same as the Register page, without needing the access code:
+   ```bash
+   npm run create-user -- admin "Priya Sharma" priya@campus.edu MyPassword123
+   npm run create-user -- staff "Ravi Menon" ravi@campus.edu MyPassword123 "IT Services"
+   npm run create-user -- dept_head "Suresh Kumar" suresh@campus.edu MyPassword123 "IT Services"
+   ```
+   Staff and heads need a department that already exists.
+
+**Don't create accounts with a plain SQL `INSERT`.** A login needs more than one row, so a hand-written insert leaves the account broken:
+
+- `password_hash` must be a bcrypt hash. A plain password is rejected by the `chk_user_password` constraint.
+- Staff and heads also need a row in the `staff` table. Without it they have no department and cannot log in.
+- A head should also be set in `departments.head_id`, otherwise they don't get escalation notifications.
+
+If you change a user's `role` in SQL, that person must **log out and log in again**, because the role is stored in the login cookie.
 
 ### Troubleshooting
 
@@ -197,6 +231,13 @@ To reset the demo data at any time, run `npm run db:setup` and then `npm run db:
 | `type "vector" does not exist` or `permission denied to create extension` | Run `CREATE EXTENSION vector;` as the superuser in `grievance_db` (step 2) |
 | `relation "users" does not exist` | Run `npm run db:setup` and then `npm run db:seed` |
 | Complaint form says the text similarity model could not be loaded | The model has not been downloaded yet. Connect to the internet (some college networks block huggingface.co, so try a hotspot) and try again |
+| Login says `Invalid email or password` for an account made in SQL | The password was not hashed. Create the account with `npm run create-user` instead |
+| Login says the account is not linked to a department | A staff or head account has no row in the `staff` table. Create it with `npm run create-user` or the admin *Users* page |
+| No admin account exists | Register one on the Register page with the access code, or run `npm run db:seed` |
+| Register says `Wrong access code` | Use the exact `STAFF_SIGNUP_CODE` value from `.env.local` |
+| Register says staff sign-up is turned off | Set `STAFF_SIGNUP_CODE` in `.env.local` and restart the app |
+| Department list is empty on the Register page | No departments exist yet. Register an admin first and add them, or run `npm run db:seed` |
+| Role was changed in SQL but the site still shows the old role | Log out and log in again |
 | Port 3000 is already in use | Run `npm run dev -- -p 3001` and open http://localhost:3001 |
 | Login just returns to the login page when using `npm start` from another device | Production cookies need HTTPS. Use `npm run dev`, or open it on `localhost` |
 

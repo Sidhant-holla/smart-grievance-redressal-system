@@ -32,7 +32,7 @@ The data is there, but no process is enforced around it.
 
 | Role | Can do |
 |---|---|
-| **Citizen** (student) | Register / login; raise a complaint; see similar open complaints and "support" one instead of filing a duplicate; track own and supported tickets; comment; withdraw an OPEN ticket; close a RESOLVED ticket with a rating or reopen it with a reason |
+| **Citizen** (student) | Register / login; raise a complaint; see similar open complaints and "support" one instead of filing a duplicate; track own and supported tickets and get notified of status changes; comment; withdraw a ticket until work has started; close a RESOLVED ticket with a rating or reopen it with a reason |
 | **Staff** | See their department's queue (assigned to me / unassigned / all); pick up an unassigned ticket; start work; resolve with a note; comment (public or internal); set availability for auto-assignment; keyword and semantic search |
 | **Department Head** | Everything staff can do, plus assign or re-assign tickets to department staff, resolve escalated tickets, and view the department dashboard (stats, workload, needs-attention list, slow tickets) |
 | **Admin** | System dashboard (all departments, weekly trend, SLA-missing departments, most reported issues, top staff); browse all tickets; create departments and change SLA/head; create staff/head/admin users; deactivate users; run the escalation check manually |
@@ -164,7 +164,7 @@ erDiagram
 ### Key design decisions
 
 1. **Status on the ticket *and* a separate history table.** The current status sits on `tickets` because every dashboard and queue filters on it, and reading it from history would need a "latest row per ticket" subquery every time. The full timeline goes in `ticket_status_history`, which **only a trigger writes to**, so the two can never disagree.
-2. **Workflow stored as data.** The allowed moves live in `status_transitions` (16 rows), and the trigger only checks that `(old, new)` exists in that table. Changing the workflow means changing rows, not code.
+2. **Workflow stored as data.** The allowed moves live in `status_transitions` (17 rows), and the trigger only checks that `(old, new)` exists in that table. Changing the workflow means changing rows, not code.
 3. **STAFF as a specialisation of USERS.** Only staff and heads have a department. Putting `dept_id` on `users` would leave it NULL for every citizen and admin. `staff.staff_id` is both the PK and an FK to `users` (a 1:1 "is-a" relationship).
 4. **Circular FK between DEPARTMENTS and STAFF.** A department has a head (a staff member), and a staff member belongs to a department. Neither FK can be created first, so `departments.head_id` is added afterwards with `ALTER TABLE`.
 5. **Supporters instead of duplicate tickets.** "I have the same problem" is an M:N relationship (`ticket_supporters`, composite PK). It stops the same issue from being filed again and again, and it shows how many people are affected.
@@ -279,7 +279,7 @@ Underline = primary key, *italics* = foreign key.
 **Why pgvector instead of a separate vector database (Qdrant/Pinecone):** the vectors are always used together with relational filters (only *open* tickets, only *resolved/accepted* tickets, joined to the department name). Keeping them in the same database means:
 
 - a single SQL query can do the similarity search together with the JOIN and WHERE filters,
-- the vector is inserted in the **same transaction** as the ticket, so a ticket can never exist without its embedding (or the other way round),
+- the vector is inserted in the **same transaction** as the ticket, so a ticket is never saved without its embedding (if the model cannot load, the submission is refused with a clear message),
 - there's one fewer service to run and keep in sync.
 
 At our data size (thousands of tickets, not millions) a dedicated vector database would add complexity without any benefit.
@@ -295,6 +295,7 @@ stateDiagram-v2
     ASSIGNED --> IN_PROGRESS
     ASSIGNED --> RESOLVED
     ASSIGNED --> ESCALATED
+    ASSIGNED --> CLOSED : citizen withdraws before work starts
     IN_PROGRESS --> RESOLVED
     IN_PROGRESS --> ESCALATED
     ESCALATED --> ASSIGNED : head re-assigns (new SLA window)
@@ -345,7 +346,7 @@ Rules we fixed before writing the triggers:
 | Index | HNSW with `vector_cosine_ops` |
 | Similarity metric | **Cosine similarity** = `1 - (a <=> b)`. Vectors are normalised, so this only compares direction (meaning), not text length. |
 | Retrieval 1: duplicates | `find_similar_tickets(vec, min_sim, limit)` searches **open** tickets ordered by distance. On the form we show ≥ 0.50 and the citizen decides. On submit, if the best match is ≥ 0.60 it is saved as `possible_duplicate_of`. |
-| Retrieval 2: department | `suggest_department(vec, k=7, min_sim=0.4)` takes the 7 nearest **accepted** tickets (assigned or resolved), and each votes for its department weighted by similarity (`GROUP BY dept, SUM(sim)`). |
+| Retrieval 2: department | `suggest_department(vec, k=7, min_sim=0.4)` takes the 7 nearest tickets that a department is **handling or has resolved** (not unassigned or withdrawn ones), and each votes for its department weighted by similarity (`GROUP BY dept, SUM(sim)`). |
 | Retrieval 3: search | Staff and admin can switch the search box to semantic mode (results ≥ 0.3, ranked by distance). |
 
 ### Tuning on our own data
@@ -365,7 +366,7 @@ The functions always return *something*, so we checked the scores by hand:
 
 - We first used **0.65** as the duplicate threshold, but it **missed the lift/elevator pair (0.611)**. We lowered it to **0.60**: a wrong "possible duplicate" note costs staff a click, while a missed duplicate means the same work gets done twice. Only *open* tickets are compared, so the bus pair (0.606) is not flagged, because the old bus ticket is closed.
 - `suggest_department` with all 7 neighbours voting sent "fan making noise in classroom" to *Hostel*. Its nearest match was correct (Maintenance, 0.66), but three weak hostel matches (0.27–0.48) outvoted it. Adding `min_similarity = 0.4` fixed this.
-- It also sent "WiFi down in my hostel" to *Hostel* when only resolved tickets were used, because IT had just one resolved Wi-Fi case. Using tickets the department has **accepted** (assigned or resolved) fixed it.
+- It also sent "WiFi down in my hostel" to *Hostel* when only resolved tickets were used, because IT had just one resolved Wi-Fi case. Including tickets the department is currently handling fixed it. Most tickets are auto-assigned, so this means "not rejected", not "confirmed correct by staff".
 - **Known limitation:** ambiguous text like "water cooler not working in library block" still goes to Hostel, because there's no similar past case. The suggestion is only pre-selected in a dropdown, and the citizen can change it.
 
 ## 13. Security
@@ -380,7 +381,7 @@ The functions always return *something*, so we checked the scores by hand:
 
 ## 14. Testing
 
-See [TESTING.md](TESTING.md): 32 automated database tests plus manual API/UI tests.
+See [TESTING.md](TESTING.md): 35 automated database tests plus manual API/UI tests.
 
 ## 15. Conclusion and Future Enhancements
 

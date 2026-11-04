@@ -37,6 +37,9 @@ PASS  Every status change is written to history by trigger  ->  NULL->OPEN, OPEN
 PASS  Overdue ticket is escalated and the head is notified  ->  status=ESCALATED, escalation_count=1, head notified=true
 PASS  Re-assigning an escalated ticket gives a new deadline  ->  status=ASSIGNED, new due in future=true
 PASS  Reopening clears resolved_at and resets the SLA timer  ->  resolved_at=null, new due in future=true
+PASS  Citizens following a ticket are notified of status changes  ->  Ticket #56 that you are following is now ASSIGNED
+PASS  Citizen can withdraw a ticket that is assigned but not started  ->  status=CLOSED
+PASS  Ticket in progress cannot be withdrawn  ->  Invalid status change for ticket #58: IN_PROGRESS -> CLOSED
 
 --- Stored procedures ---
 PASS  auto_assign_ticket picks the least loaded available staff  ->  assigned_to=3, status=ASSIGNED
@@ -44,11 +47,11 @@ PASS  No available staff -> ticket stays OPEN in the queue  ->  status=OPEN
 
 --- Concurrency: two staff pick up the same ticket at the same time ---
 PASS  WITHOUT row lock: both staff "succeed" (lost update - shows the problem)  ->  both read OPEN, first staff's assignment was overwritten by the second
-PASS  WITH claim_ticket (FOR UPDATE): first wins, second gets a clear error  ->  Ticket #59 was already picked up by someone else
+PASS  WITH claim_ticket (FOR UPDATE): first wins, second gets a clear error  ->  Ticket #62 was already picked up by someone else
 
 --- Views / aggregate correctness ---
 PASS  v_department_stats totals match COUNT(*) on tickets
-PASS  Naive JOIN with history over-counts (why the view avoids it)  ->  JOIN gives 34 rows, real ticket count is 8
+PASS  Naive JOIN with history over-counts (why the view avoids it)  ->  JOIN gives 35 rows, real ticket count is 8
 
 --- Vector similarity (pgvector) ---
 PASS  Re-worded hostel internet complaint finds the existing open ticket  ->  #44 "No internet connection in my hostel room" similarity 0.790
@@ -61,7 +64,7 @@ PASS  suggest_department -> Campus Maintenance  ->  got "Campus Maintenance" (sc
 --- Full-text search vs semantic search ---
 PASS  Keyword search needs exact words, semantic search finds related wording  ->  keyword: 0 results, semantic: 2 open results
 
-32 / 32 tests passed
+35 / 35 tests passed
 ```
 
 ### Problems the tests found (and what we changed)
@@ -72,6 +75,13 @@ PASS  Keyword search needs exact words, semantic search finds related wording  -
 | Duplicate threshold 0.65 did not flag *"Elevator stuck in the new building"* against the open *"Lift not working in new block"* (similarity 0.611). | Threshold lowered to 0.60 (see DESIGN.md §12). |
 | Manual test: *"WiFi down in my hostel"* was suggested **Hostel** (0.945) over IT (0.619), because only resolved tickets were used and IT had one resolved Wi-Fi case. | `suggest_department` now learns from tickets the department has accepted (assigned or resolved), not only resolved ones. |
 | Manual test: a comment could be posted on a CLOSED ticket through the API (the UI hid the form, but the API allowed it). | The comments API now rejects closed tickets. |
+| Browser test as a student: the "possible duplicate" link opened an access-denied page, because citizens cannot view other people's tickets. | Citizens now see a plain note instead of a link. |
+| Browser test: a student's own ticket was listed with "I have the same problem", and clicking it gave an error. | The check API marks tickets the student raised or follows, and the form shows "View ticket" for those. |
+| Browser test: after editing the complaint text, the department stayed on the old suggestion. | Changing the title or description clears the department, so the next check suggests it again. |
+| Browser test: the form promised followers a notification, but only the ticket owner got one. | `ticket_after_change` now notifies everyone in `ticket_supporters`. |
+| Browser test: "Withdraw" never appeared, because auto-assign moves a ticket to ASSIGNED straight away. | Added the ASSIGNED → CLOSED transition. A ticket can be withdrawn until work starts. |
+| Code review: because moves to CLOSED are allowed for withdrawing, `close` also worked on an open ticket through the API. | The API only allows `close` on RESOLVED tickets and `withdraw` on OPEN / ASSIGNED ones. |
+| Simulated failure: if the embedding model could not load, the route had no error handling and the form could stay stuck on "Checking...". | The API returns a 503 with a readable message and the form shows it. |
 
 ## 2. API / end-to-end tests (manual, with curl against `next start`)
 

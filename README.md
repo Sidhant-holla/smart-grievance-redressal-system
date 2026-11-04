@@ -47,64 +47,158 @@ db/
 scripts/
   setup-db.js                runs the SQL files in order
   seed.js, seed-data.js      sample departments, users, 44 tickets (through the real workflow)
-  test-db.js                 32 database tests
+  test-db.js                 35 database tests
 lib/                         db pool, auth, embeddings, escalation helper
 app/                         pages (citizen, staff, head, admin, tickets) and app/api routes
 components/                  Navbar, TicketTable, TicketBrowser, DepartmentDashboard
 middleware.js                page protection by role
 ```
 
-## Setup
+## How to Run
 
-### 1. Prerequisites
+**Quick version**, if PostgreSQL with pgvector is already running and the database exists:
 
-- **Node.js 20+** (we used 22 LTS)
-- **PostgreSQL 16+ with the pgvector extension**. Pick one option:
+```bash
+npm install
+cp .env.example .env.local     # then edit it (see step 3)
+npm run db:setup
+npm run db:seed
+npm run dev                    # open http://localhost:3000
+```
 
-**Option A – Docker (easiest)**
+First time on a new machine? Follow the steps below in order.
+
+### Step 1: Install what you need
+
+- **Node.js 20.12 or newer** (we used 22 LTS, [download here](https://nodejs.org)). Check with `node -v`.
+- **Git**
+- **Internet access for the first run**: the 23 MB MiniLM model is downloaded once, then cached in `node_modules`.
+- **PostgreSQL 16+ with the pgvector extension**. Pick one option below.
+
+**Option A: Docker (easiest, any OS)**
+
+Needs [Docker Desktop](https://www.docker.com/products/docker-desktop/) to be running. This image already includes pgvector.
 ```bash
 docker run -d --name grievance-db -p 5432:5432 -e POSTGRES_PASSWORD=postgres pgvector/pgvector:pg17
 ```
 
-**Option B – Windows without Docker (what we used, via MSYS2)**
+**Option B: Windows without Docker (what we used)**
+
+No admin rights needed. Install [MSYS2](https://www.msys2.org), open the **MSYS2 UCRT64** shell from the Start menu, and run these (replace `<you>` with your Windows username):
 ```bash
-# in an MSYS2 UCRT64 shell
-pacman -S mingw-w64-ucrt-x86_64-postgresql mingw-w64-ucrt-x86_64-gcc make git
+pacman -S --needed mingw-w64-ucrt-x86_64-postgresql mingw-w64-ucrt-x86_64-gcc make git
 git clone --branch v0.8.1 https://github.com/pgvector/pgvector.git
-cd pgvector && make && make install
-initdb -D ~/pgdata -U postgres -W --auth=scram-sha-256 -E UTF8
-pg_ctl -D ~/pgdata -l ~/pgdata/server.log start
+cd pgvector && make && make install && cd ..
+initdb -D C:/Users/<you>/pgdata -U postgres -W --auth=scram-sha-256 -E UTF8    # asks you to set a postgres password
+pg_ctl -D C:/Users/<you>/pgdata -l C:/Users/<you>/pgdata/server.log start
 ```
-(With the EDB PostgreSQL installer, build pgvector with Visual Studio's `nmake` as described in the [pgvector README](https://github.com/pgvector/pgvector#windows).)
+Then add `C:\msys64\ucrt64\bin` to your Windows PATH so `psql` and `pg_ctl` work in normal terminals.
 
-**Option C – Linux / macOS**
-`sudo apt install postgresql-16-pgvector` or `brew install postgresql@17 pgvector`
+(With the EDB PostgreSQL installer instead, build pgvector with Visual Studio's `nmake` as described in the [pgvector README](https://github.com/pgvector/pgvector#windows).)
 
-### 2. Create the database (run once as the `postgres` superuser)
+**Option C: Linux / macOS**
+```bash
+# Ubuntu / Debian (change 16 to your PostgreSQL version)
+sudo apt install postgresql postgresql-16-pgvector
+sudo systemctl start postgresql
 
+# macOS
+brew install postgresql@17 pgvector
+brew services start postgresql@17
+```
+
+### Step 2: Create the database (once only)
+
+Open `psql` as the PostgreSQL superuser:
+
+| Your option | Command |
+|---|---|
+| Docker | `docker exec -it grievance-db psql -U postgres` |
+| Windows (MSYS2) | `psql -U postgres -h localhost` |
+| Ubuntu / Debian | `sudo -u postgres psql` |
+| macOS | `psql postgres` |
+
+Then run these, using your own password in the first line:
 ```sql
 CREATE ROLE grievance_app LOGIN PASSWORD 'choose_a_password';
 CREATE DATABASE grievance_db OWNER grievance_app;
 \c grievance_db
-CREATE EXTENSION vector;   -- needs superuser, so it is done here
+CREATE EXTENSION vector;   -- needs superuser, so it is done here and not in db:setup
+\q
 ```
 
-### 3. Configure and run
+### Step 3: Get the code and set up `.env.local`
 
 ```bash
+git clone https://github.com/Sidhant-holla/smart-grievance-redressal-system.git
+cd smart-grievance-redressal-system
 npm install
-cp .env.example .env.local        # then put your password and a random JWT_SECRET in it
-npm run db:setup                  # creates tables, views, functions, triggers
-npm run db:seed                   # sample data (downloads the 23 MB MiniLM model the first time)
-npm run db:test                   # optional: 32 database tests
-npm run dev                       # http://localhost:3000
+cp .env.example .env.local
 ```
+(`cp` works in PowerShell and Git Bash. In the old Command Prompt use `copy`.)
 
-`.env.local`:
+Open `.env.local` and fill in both values:
 ```
 DATABASE_URL=postgresql://grievance_app:choose_a_password@localhost:5432/grievance_db
 JWT_SECRET=<any long random string>
 ```
+- The password must match the one from step 2. Avoid symbols like `@` or `/` in it, because they break the URL.
+- To generate a `JWT_SECRET`, run: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+- `.env.local` is git-ignored, so never commit it.
+
+### Step 4: Create the tables and sample data
+
+```bash
+npm run db:setup     # creates tables, views, functions, triggers (WARNING: deletes existing data)
+npm run db:seed      # adds 27 users and 44 tickets (downloads the model the first time)
+npm run db:test      # optional: runs the 35 database tests
+```
+
+### Step 5: Start the app
+
+```bash
+npm run dev
+```
+Open **http://localhost:3000** and log in with a [demo account](#demo-accounts). Press `Ctrl + C` in the terminal to stop it.
+
+To run the production build instead: `npm run build`, then `npm start`.
+
+### Running it again later
+
+The app stops when you close the terminal, and PostgreSQL usually stops after a restart. So each time:
+
+1. **Start PostgreSQL**
+   - Docker: `docker start grievance-db`
+   - Windows (MSYS2): `pg_ctl -D C:/Users/<you>/pgdata -l C:/Users/<you>/pgdata/server.log start`
+   - Ubuntu / Debian: `sudo systemctl start postgresql`
+   - macOS: `brew services start postgresql@17`
+2. **Start the app** from the project folder: `npm run dev`
+
+### After pulling new code
+
+```bash
+git pull
+npm install
+npm run db:setup     # only needed if files in db/ changed (this deletes your data)
+npm run db:seed
+```
+
+To reset the demo data at any time, run `npm run db:setup` and then `npm run db:seed`.
+
+### Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `pg_ctl` / `psql` is not recognized | Open a new terminal. On Windows, check that `C:\msys64\ucrt64\bin` is on your PATH |
+| `ECONNREFUSED ... 5432` | PostgreSQL is not running, see "Running it again later" |
+| `password authentication failed` | The password in `.env.local` does not match the one from step 2 |
+| `no such file or directory ... .env.local` | You skipped step 3. Run the commands from the project folder |
+| `process.loadEnvFile is not a function` | Your Node.js is older than 20.12, so update it |
+| `type "vector" does not exist` or `permission denied to create extension` | Run `CREATE EXTENSION vector;` as the superuser in `grievance_db` (step 2) |
+| `relation "users" does not exist` | Run `npm run db:setup` and then `npm run db:seed` |
+| Complaint form says the text similarity model could not be loaded | The model has not been downloaded yet. Connect to the internet (some college networks block huggingface.co, so try a hotspot) and try again |
+| Port 3000 is already in use | Run `npm run dev -- -p 3001` and open http://localhost:3001 |
+| Login just returns to the login page when using `npm start` from another device | Production cookies need HTTPS. Use `npm run dev`, or open it on `localhost` |
 
 ## Demo Accounts
 
@@ -121,7 +215,7 @@ All demo accounts use the password **`Password@123`**.
 ### Things to try in the demo
 
 1. **Duplicate detection**: log in as a citizen → *Raise Complaint* → type *"Hostel wifi keeps disconnecting"* with a description → *Check for similar complaints*. Open tickets #44 / #40 appear, and IT Services is pre-selected.
-2. **Workflow enforcement**: as `ravi.it`, open a ticket assigned to you → Start → Resolve. As the citizen, Reopen or Close with a rating. Then try an invalid move directly in psql:
+2. **Workflow enforcement**: as `ravi.it`, open a ticket assigned to you → Start → Resolve. As the citizen, Reopen or Close with a rating. Then try an invalid move directly in psql (`psql -U grievance_app -h localhost -d grievance_db`):
    ```sql
    UPDATE tickets SET status = 'RESOLVED' WHERE status = 'OPEN';   -- ERROR: Invalid status change
    ```

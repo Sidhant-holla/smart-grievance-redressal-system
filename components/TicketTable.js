@@ -4,7 +4,8 @@ import { formatDate, timeFromNow } from '@/lib/format';
 
 // Table of tickets used by the citizen, staff and admin pages.
 // showDept / showCreator hide columns that are not useful for that role.
-export default function TicketTable({ tickets, showDept = true, showCreator = true, showScore = false }) {
+// currentUserId (citizen page) marks tickets they follow but did not raise.
+export default function TicketTable({ tickets, showDept = true, showCreator = true, showScore = false, currentUserId }) {
   if (tickets.length === 0) {
     return <p className="empty">No tickets found.</p>;
   }
@@ -32,6 +33,7 @@ export default function TicketTable({ tickets, showDept = true, showCreator = tr
               <td>{t.ticket_id}</td>
               <td>
                 <Link href={`/tickets/${t.ticket_id}`}>{t.title}</Link>
+                {currentUserId && t.created_by !== currentUserId && <div className="muted">You are following this</div>}
                 {t.supporter_count > 0 && <div className="muted">+{t.supporter_count} others reported this</div>}
                 {t.possible_duplicate_of && <div className="muted">Possible duplicate of #{t.possible_duplicate_of}</div>}
               </td>

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { query, withTransaction } from '@/lib/db';
-import { requireRole, jsonError, dbError } from '@/lib/api';
+import { requireRole, jsonError, dbError, embeddingError } from '@/lib/api';
 import { getEmbedding, ticketText, toPgVector } from '@/lib/embeddings';
 import { runEscalationCheck } from '@/lib/escalation';
 
@@ -59,7 +59,12 @@ export async function GET(request) {
   let sql;
   if (q && mode === 'semantic') {
     // semantic search: compare the meaning of the search text with every ticket
-    const embedding = toPgVector(await getEmbedding(q));
+    let embedding;
+    try {
+      embedding = toPgVector(await getEmbedding(q));
+    } catch (err) {
+      return embeddingError(err);
+    }
     const vec = param(embedding);
     conditions.push(`1 - (e.embedding <=> ${vec}) >= 0.3`);
     sql = `SELECT v.*, ROUND((1 - (e.embedding <=> ${vec}))::numeric, 3) AS similarity
@@ -100,7 +105,12 @@ export async function POST(request) {
   if (!title || !description || !deptId) return jsonError('Title, description and department are required');
 
   // embedding is computed before the transaction so the DB connection is not held while the model runs
-  const embedding = toPgVector(await getEmbedding(ticketText(title, description)));
+  let embedding;
+  try {
+    embedding = toPgVector(await getEmbedding(ticketText(title, description)));
+  } catch (err) {
+    return embeddingError(err);
+  }
 
   try {
     const ticket = await withTransaction(async (client) => {

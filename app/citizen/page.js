@@ -6,14 +6,20 @@ import TicketTable from '@/components/TicketTable';
 
 export default function CitizenHome() {
   const [tickets, setTickets] = useState(null);
+  const [userId, setUserId] = useState(null);
 
   useEffect(() => {
     fetch('/api/tickets')
       .then((res) => res.json())
       .then((data) => setTickets(data.tickets || []));
+    fetch('/api/auth/me')
+      .then((res) => res.json())
+      .then((data) => setUserId(data.user?.id ?? null));
   }, []);
 
   const active = tickets ? tickets.filter((t) => t.is_open).length : 0;
+  // only the person who raised a ticket can confirm it, so followed tickets are not counted
+  const toConfirm = tickets ? tickets.filter((t) => t.status === 'RESOLVED' && t.created_by === userId).length : 0;
 
   return (
     <>
@@ -38,14 +44,18 @@ export default function CitizenHome() {
             <div className="label">Still open</div>
           </div>
           <div className="stat green">
-            <div className="value">{tickets.filter((t) => t.status === 'RESOLVED').length}</div>
+            <div className="value">{toConfirm}</div>
             <div className="label">Resolved - waiting for your confirmation</div>
           </div>
         </div>
       )}
 
       <div className="card">
-        {tickets === null ? <p className="muted">Loading...</p> : <TicketTable tickets={tickets} showCreator={false} />}
+        {tickets === null ? (
+          <p className="muted">Loading...</p>
+        ) : (
+          <TicketTable tickets={tickets} showCreator={false} currentUserId={userId} />
+        )}
       </div>
     </>
   );

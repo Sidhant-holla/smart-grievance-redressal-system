@@ -77,11 +77,16 @@ export async function POST(request, { params }) {
 
         case 'close': // citizen confirms the fix and rates it
           if (!isOwner) throw new Error('Only the person who raised the ticket can close it');
+          // the trigger allows other moves to CLOSED (withdraw), so this one is checked here
+          if (current.status !== 'RESOLVED') throw new Error('Only a resolved ticket can be closed');
           await setStatus('CLOSED', ', rating = $4', [rating || null]);
           break;
 
-        case 'withdraw':
+        case 'withdraw': // allowed until a staff member starts working on it
           if (!isOwner) throw new Error('Only the person who raised the ticket can withdraw it');
+          if (!['OPEN', 'ASSIGNED'].includes(current.status)) {
+            throw new Error('Work on this ticket has already started, so it cannot be withdrawn');
+          }
           await setStatus('CLOSED');
           break;
 

@@ -1,9 +1,25 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { StatusBadge } from '@/components/StatusBadge';
 import { formatDate } from '@/lib/format';
+
+// sends a POST and always gives back { ok, data }, even if the server failed
+// without sending JSON, so the form can never get stuck on "Checking..."
+async function postJson(url, body) {
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return { ok: res.ok, data: await res.json() };
+  } catch {
+    return { ok: false, data: { error: 'Something went wrong. Please try again.' } };
+  }
+}
 
 // Two steps:
 //  1. citizen writes the complaint -> "Check for similar complaints"
@@ -25,23 +41,22 @@ export default function NewTicketPage() {
   }, []);
 
   function update(field, value) {
-    setForm({ ...form, [field]: value });
-    // text changed -> the old similarity check is no longer valid
-    if (field === 'title' || field === 'description') setCheckResult(null);
+    // text changed -> the old similarity check and suggested department are no longer valid
+    if (field === 'title' || field === 'description') {
+      setForm({ ...form, [field]: value, deptId: '' });
+      setCheckResult(null);
+    } else {
+      setForm({ ...form, [field]: value });
+    }
   }
 
   async function checkSimilar(e) {
     e.preventDefault();
     setError('');
     setBusy(true);
-    const res = await fetch('/api/tickets/check', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: form.title, description: form.description }),
-    });
-    const data = await res.json();
+    const { ok, data } = await postJson('/api/tickets/check', { title: form.title, description: form.description });
     setBusy(false);
-    if (!res.ok) {
+    if (!ok) {
       setError(data.error);
       return;
     }
@@ -54,9 +69,8 @@ export default function NewTicketPage() {
 
   async function supportExisting(ticketId) {
     setError('');
-    const res = await fetch(`/api/tickets/${ticketId}/support`, { method: 'POST' });
-    const data = await res.json();
-    if (!res.ok) {
+    const { ok, data } = await postJson(`/api/tickets/${ticketId}/support`);
+    if (!ok) {
       setError(data.error);
       return;
     }
@@ -71,14 +85,9 @@ export default function NewTicketPage() {
       return;
     }
     setBusy(true);
-    const res = await fetch('/api/tickets', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
-    });
-    const data = await res.json();
+    const { ok, data } = await postJson('/api/tickets', form);
     setBusy(false);
-    if (!res.ok) {
+    if (!ok) {
       setError(data.error);
       return;
     }
@@ -182,9 +191,20 @@ export default function NewTicketPage() {
                             {s.dept_name} - {formatDate(s.created_at)}
                           </span>
                         </div>
-                        <button className="small secondary" style={{ marginTop: 8 }} onClick={() => supportExisting(s.ticket_id)}>
-                          I have the same problem
-                        </button>
+                        {s.is_mine || s.is_following ? (
+                          <div className="muted" style={{ marginTop: 8 }}>
+                            {s.is_mine ? 'You already reported this. ' : 'You are already following this. '}
+                            <Link href={`/tickets/${s.ticket_id}`}>View ticket</Link>
+                          </div>
+                        ) : (
+                          <button
+                            className="small secondary"
+                            style={{ marginTop: 8 }}
+                            onClick={() => supportExisting(s.ticket_id)}
+                          >
+                            I have the same problem
+                          </button>
+                        )}
                       </div>
                     ))}
                   </>

@@ -89,7 +89,7 @@ export default function TicketDetailPage({ params }) {
   const canStart = assignedToMe && ['ASSIGNED', 'ESCALATED', 'REOPENED'].includes(s);
   const canResolve = (assignedToMe || isManager) && ['ASSIGNED', 'IN_PROGRESS', 'ESCALATED'].includes(s);
   const canConfirm = isOwner && s === 'RESOLVED';
-  const canWithdraw = isOwner && s === 'OPEN';
+  const canWithdraw = isOwner && ['OPEN', 'ASSIGNED'].includes(s);
 
   return (
     <>
@@ -119,13 +119,19 @@ export default function TicketDetailPage({ params }) {
           <div className="card">
             <h2>Description</h2>
             <p className="description">{ticket.description}</p>
-            {ticket.possible_duplicate_of && (
-              <div className="info">
-                This looks very similar to ticket{' '}
-                <Link href={`/tickets/${ticket.possible_duplicate_of}`}>#{ticket.possible_duplicate_of}</Link>, which was
-                still open when this one was submitted.
-              </div>
-            )}
+            {ticket.possible_duplicate_of &&
+              (user.role === 'citizen' ? (
+                // citizens cannot open other people's tickets, so no link here
+                <div className="info">
+                  This looks similar to ticket #{ticket.possible_duplicate_of}, so staff may handle them together.
+                </div>
+              ) : (
+                <div className="info">
+                  This looks very similar to ticket{' '}
+                  <Link href={`/tickets/${ticket.possible_duplicate_of}`}>#{ticket.possible_duplicate_of}</Link>, which
+                  was still open when this one was submitted.
+                </div>
+              ))}
           </div>
 
           {/* ---------- actions ---------- */}

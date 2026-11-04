@@ -159,6 +159,14 @@ BEGIN
                     'Your ticket #' || NEW.ticket_id || ' is now ' || NEW.status);
         END IF;
 
+        -- so are the people who said "I have the same problem"
+        INSERT INTO notifications (user_id, ticket_id, message)
+        SELECT user_id, NEW.ticket_id,
+               'Ticket #' || NEW.ticket_id || ' that you are following is now ' || NEW.status
+        FROM ticket_supporters
+        WHERE ticket_id = NEW.ticket_id
+          AND user_id IS DISTINCT FROM NEW.updated_by;
+
         IF NEW.status = 'ESCALATED' THEN
             SELECT head_id INTO v_head_id FROM departments WHERE dept_id = NEW.dept_id;
             IF v_head_id IS NOT NULL THEN
@@ -384,9 +392,9 @@ $$ LANGUAGE sql STABLE;
 -- ---------------------------------------------------------------------
 -- suggest_department : k nearest past tickets vote for their department,
 -- each vote weighted by its similarity.
--- Only tickets that the department has accepted (assigned to its staff or
--- resolved) are used, because for those we know the routing was correct.
--- A plain OPEN ticket only has the department the citizen guessed.
+-- Only tickets the department is handling or has resolved are used. An
+-- unassigned OPEN ticket only has the department the citizen picked, and a
+-- withdrawn ticket was never worked on.
 -- (We first used resolved tickets only, but then "WiFi down in my hostel"
 -- was sent to Hostel because IT had just one resolved Wi-Fi case.)
 -- Neighbours below p_min_similarity do not vote: in testing, "fan noise in
@@ -401,7 +409,7 @@ RETURNS TABLE (dept_id INT, dept_name VARCHAR, matches BIGINT, score NUMERIC) AS
         SELECT t.dept_id, 1 - (e.embedding <=> p_embedding) AS sim
         FROM ticket_embeddings e
         JOIN tickets t ON t.ticket_id = e.ticket_id
-        WHERE (t.assigned_to IS NOT NULL OR t.resolved_at IS NOT NULL)
+        WHERE ((t.assigned_to IS NOT NULL AND t.status <> 'CLOSED') OR t.resolved_at IS NOT NULL)
           AND 1 - (e.embedding <=> p_embedding) >= p_min_similarity
         ORDER BY e.embedding <=> p_embedding
         LIMIT p_k

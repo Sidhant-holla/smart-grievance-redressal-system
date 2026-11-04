@@ -174,6 +174,35 @@ async function main() {
       `resolved_at=${r.resolved_at}, new due in future=${r.fresh}`);
   });
 
+  await inRollback(async () => {
+    const t = await newTicket(db, itDept, citizen);
+    const follower = await id(`SELECT user_id AS id FROM users WHERE email = 'rahul@student.campus.edu'`);
+    await db.query('INSERT INTO ticket_supporters (ticket_id, user_id) VALUES ($1, $2)', [t.ticket_id, follower]);
+    await db.query('CALL assign_ticket($1, $2, $3)', [t.ticket_id, itStaff, itHead]);
+    const n = await db.query('SELECT message FROM notifications WHERE ticket_id = $1 AND user_id = $2', [t.ticket_id, follower]);
+    record('Citizens following a ticket are notified of status changes', n.rowCount === 1, n.rows[0]?.message);
+  });
+
+  await inRollback(async () => {
+    const t = await newTicket(db, itDept, citizen);
+    await db.query('CALL assign_ticket($1, $2, $3)', [t.ticket_id, itStaff, itHead]);
+    await db.query(`UPDATE tickets SET status = 'CLOSED', updated_by = $2 WHERE ticket_id = $1`, [t.ticket_id, citizen]);
+    const r = await db.query('SELECT status FROM tickets WHERE ticket_id = $1', [t.ticket_id]);
+    record('Citizen can withdraw a ticket that is assigned but not started', r.rows[0].status === 'CLOSED', `status=${r.rows[0].status}`);
+  });
+
+  await inRollback(async () => {
+    const t = await newTicket(db, itDept, citizen);
+    await db.query('CALL assign_ticket($1, $2, $3)', [t.ticket_id, itStaff, itHead]);
+    await db.query(`UPDATE tickets SET status = 'IN_PROGRESS', updated_by = $2 WHERE ticket_id = $1`, [t.ticket_id, itStaff]);
+    try {
+      await db.query(`UPDATE tickets SET status = 'CLOSED' WHERE ticket_id = $1`, [t.ticket_id]);
+      record('Ticket in progress cannot be withdrawn', false, 'accepted');
+    } catch (err) {
+      record('Ticket in progress cannot be withdrawn', err.message.includes('Invalid status change'), err.message);
+    }
+  });
+
   console.log('\n--- Stored procedures ---');
   await inRollback(async () => {
     const t = await newTicket(db, itDept, citizen);

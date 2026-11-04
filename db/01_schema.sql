@@ -111,6 +111,7 @@ INSERT INTO status_transitions (from_status, to_status) VALUES
     ('ASSIGNED',    'IN_PROGRESS'),
     ('ASSIGNED',    'RESOLVED'),
     ('ASSIGNED',    'ESCALATED'),
+    ('ASSIGNED',    'CLOSED'),       -- citizen withdraws before work has started
     ('IN_PROGRESS', 'RESOLVED'),
     ('IN_PROGRESS', 'ESCALATED'),
     ('ESCALATED',   'ASSIGNED'),     -- head re-assigns, new SLA window starts

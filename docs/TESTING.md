@@ -74,7 +74,7 @@ PASS  Keyword search needs exact words, semantic search finds related wording  -
 |---|---|
 | `suggest_department` sent *"food in the hostel mess is cold"* to **Hostel** and *"fan making noise in classroom"* to **Hostel**. The nearest match was correct both times, but 3–4 weakly similar hostel tickets (0.27–0.48) outvoted it. | Added `p_min_similarity = 0.4`, so only reasonably similar cases vote. |
 | Duplicate threshold 0.65 did not flag *"Elevator stuck in the new building"* against the open *"Lift not working in new block"* (similarity 0.611). | Threshold lowered to 0.60 (see DESIGN.md §12). |
-| Manual test: *"WiFi down in my hostel"* was suggested **Hostel** (0.945) over IT (0.619), because only resolved tickets were used and IT had one resolved Wi-Fi case. | `suggest_department` now learns from tickets the department has accepted (assigned or resolved), not only resolved ones. |
+| Manual test: *"WiFi down in my hostel"* was suggested **Hostel** (0.945) over IT (0.619), because only resolved tickets were used and IT had one resolved Wi-Fi case. | `suggest_department` now learns from tickets the department is handling as well as resolved ones. |
 | Manual test: a comment could be posted on a CLOSED ticket through the API (the UI hid the form, but the API allowed it). | The comments API now rejects closed tickets. |
 | Browser test as a student: the "possible duplicate" link opened an access-denied page, because citizens cannot view other people's tickets. | Citizens now see a plain note instead of a link. |
 | Browser test: a student's own ticket was listed with "I have the same problem", and clicking it gave an error. | The check API marks tickets the student raised or follows, and the form shows "View ticket" for those. |
@@ -84,6 +84,8 @@ PASS  Keyword search needs exact words, semantic search finds related wording  -
 | Code review: because moves to CLOSED are allowed for withdrawing, `close` also worked on an open ticket through the API. | The API only allows `close` on RESOLVED tickets and `withdraw` on OPEN / ASSIGNED ones. |
 | Teammate report: admin, staff and head accounts made by hand in SQL could not use the site. A plain password was accepted but could never log in, staff without a `staff` row saw an empty queue, and heads got "deptId is required". Without seed data there was no admin at all, so the GUI could not create these roles. | Added the `chk_user_password` constraint, a clear login message for staff with no department, and `npm run create-user` for creating any role from the terminal. |
 | Teammate request: the website could only create student accounts. | The Register page now offers all 4 roles, with an access code for staff, head and admin. The admin Users page can also create citizens. |
+| Requirements check: the course needs INSERT, UPDATE, DELETE and SELECT in the application, but the app had no DELETE. | Added "Stop following", which runs `DELETE FROM ticket_supporters` through `DELETE /api/tickets/:id/support`. |
+| Requirements check: `npm audit` listed Next.js advisories, including remote code execution on Windows servers, and Next listens on the whole network by default. | The app now listens only on `127.0.0.1`, and the unused image optimizer is off. The upgrade to a fixed Next.js version is listed under future work. |
 | Simulated failure: if the embedding model could not load, the route had no error handling and the form could stay stuck on "Checking...". | The API returns a 503 with a readable message and the form shows it. |
 
 ## 2. Account creation tests
@@ -126,6 +128,8 @@ PASS  Keyword search needs exact words, semantic search finds related wording  -
 | 17 | Admin sets SLA = 1000 | Rejected by CHECK | `SLA must be between 1 and 720 hours` ✔ |
 | 18 | Citizen supports the same ticket twice | Rejected by composite PK | `You are already following this ticket` ✔ |
 | 19 | Keyword search "elevator" vs semantic search "elevator" | Keyword finds 1, semantic also finds the "Lift" ticket | ✔ |
+| 20 | Citizen clicks "Stop following" | Row deleted from `ticket_supporters`, citizen returns to their list | ✔ |
+| 21 | Stop following a ticket the citizen does not follow, or as staff | 404 / 403 | ✔ |
 
 ### Access control
 

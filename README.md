@@ -32,6 +32,7 @@ A university complaint system built around the **ticket lifecycle**. Every ticke
 
 ## Documentation
 
+- [docs/Project_Report.pdf](docs/Project_Report.pdf): the complete project report
 - [docs/DESIGN.md](docs/DESIGN.md): problem statement, requirements, architecture, **ER diagram**, **relational schema**, **data dictionary**, DB justification, lifecycle rules, vector strategy
 - [docs/TESTING.md](docs/TESTING.md): test cases and results
 - [db/](db/): all SQL (DDL, views, functions/triggers/procedures, important queries)
@@ -239,7 +240,7 @@ If you change a user's `role` in SQL, that person must **log out and log in agai
 | Department list is empty on the Register page | No departments exist yet. Register an admin first and add them, or run `npm run db:seed` |
 | Role was changed in SQL but the site still shows the old role | Log out and log in again |
 | Port 3000 is already in use | Run `npm run dev -- -p 3001` and open http://localhost:3001 |
-| Login just returns to the login page when using `npm start` from another device | Production cookies need HTTPS. Use `npm run dev`, or open it on `localhost` |
+| The site does not open from another device | This is on purpose. The app only listens on this laptop (`127.0.0.1`) for security, so run the demo on the laptop itself |
 
 ## Demo Accounts
 

@@ -32,7 +32,7 @@ The data is there, but no process is enforced around it.
 
 | Role | Can do |
 |---|---|
-| **Citizen** (student) | Register freely / login; raise a complaint; see similar open complaints and "support" one instead of filing a duplicate; track own and supported tickets and get notified of status changes; comment; withdraw a ticket until work has started; close a RESOLVED ticket with a rating or reopen it with a reason |
+| **Citizen** (student) | Register freely / login; raise a complaint; see similar open complaints and "support" one instead of filing a duplicate; track own and supported tickets, get notified of status changes, and stop following a ticket; comment; withdraw a ticket until work has started; close a RESOLVED ticket with a rating or reopen it with a reason |
 | **Staff** | See their department's queue (assigned to me / unassigned / all); pick up an unassigned ticket; start work; resolve with a note; comment (public or internal); set availability for auto-assignment; keyword and semantic search |
 | **Department Head** | Everything staff can do, plus assign or re-assign tickets to department staff, resolve escalated tickets, and view the department dashboard (stats, workload, needs-attention list, slow tickets) |
 | **Admin** | System dashboard (all departments, weekly trend, SLA-missing departments, most reported issues, top staff); browse all tickets; create departments and change SLA/head; create staff/head/admin users; deactivate users; run the escalation check manually |
@@ -42,12 +42,12 @@ Minimum 2 roles required – we have 4.
 ## 5. System Architecture
 
 ```mermaid
-flowchart LR
+flowchart TB
     B[Browser<br/>Next.js pages - React] -->|fetch JSON| API[Next.js Route Handlers<br/>/app/api/*]
     MW[middleware.js<br/>JWT cookie + role check] -.protects pages.-> B
-    API -->|lib/auth.js| JWT[(httpOnly JWT cookie)]
+    API -->|lib/auth.js| JWT[httpOnly JWT cookie<br/>in the browser]
     API -->|lib/embeddings.js| M[all-MiniLM-L6-v2<br/>transformers.js, runs locally]
-    API -->|node-postgres pool<br/>DATABASE_URL from .env.local| PG[(PostgreSQL 18)]
+    API -->|node-postgres pool<br/>DATABASE_URL from .env.local| PG
     subgraph PG [PostgreSQL 18 + pgvector]
       R[Relational tables<br/>constraints, FKs]
       T[Triggers + procedures<br/>state machine, escalation, assignment]
@@ -74,6 +74,7 @@ erDiagram
     TICKETS |o--o{ TICKETS : "possible duplicate of"
     TICKET_STATUSES ||--o{ TICKETS : "current status"
     TICKET_STATUSES ||--o{ STATUS_TRANSITIONS : "from / to"
+    TICKET_STATUSES ||--o{ TICKET_STATUS_HISTORY : "old / new status"
     TICKETS ||--o| TICKET_EMBEDDINGS : "has vector"
     TICKETS ||--o{ TICKET_STATUS_HISTORY : "has history"
     USERS ||--o{ TICKET_SUPPORTERS : supports
@@ -81,6 +82,8 @@ erDiagram
     TICKETS ||--o{ TICKET_COMMENTS : has
     USERS ||--o{ TICKET_COMMENTS : writes
     USERS ||--o{ NOTIFICATIONS : receives
+    TICKETS |o--o{ NOTIFICATIONS : about
+    USERS |o--o{ TICKET_STATUS_HISTORY : "changed by"
 
     USERS {
         int user_id PK
@@ -160,6 +163,8 @@ erDiagram
         boolean is_read
     }
 ```
+
+The diagram shows the key attributes of each entity. Every column is listed in the relational schema and the data dictionary below.
 
 ### Key design decisions
 
@@ -332,7 +337,7 @@ Rules we fixed before writing the triggers:
 | **Full-text search** | generated `tsvector` column + GIN, `plainto_tsquery`, `ts_rank` | keyword search mode |
 | **Vector similarity search** | `<=>` cosine distance, HNSW index | duplicate check, department suggestion, semantic search |
 
-**Concurrency, two staff picking up the same ticket.** Without a lock, both read `OPEN`, both update, and the second update silently overwrites the first. `claim_ticket` locks the row with `SELECT … FOR UPDATE`. The second transaction waits, then sees `ASSIGNED` and fails with *"Ticket #N was already picked up by someone else"*. Both behaviours are shown in the test script (section 13).
+**Concurrency, two staff picking up the same ticket.** Without a lock, both read `OPEN`, both update, and the second update silently overwrites the first. `claim_ticket` locks the row with `SELECT … FOR UPDATE`. The second transaction waits, then sees `ASSIGNED` and fails with *"Ticket #N was already picked up by someone else"*. Both behaviours are shown in the test script (section 16).
 
 **Counting correctly.** Joining `tickets` with `ticket_status_history` repeats each ticket once per history row: for IT that gives 34 rows for 8 tickets. So `v_department_stats` counts from `tickets` only (using `escalation_count` instead of joining history), and the weekly trend uses two separate scalar subqueries instead of one join.
 
@@ -379,19 +384,61 @@ The functions always return *something*, so we checked the scores by hand:
 - `DATABASE_URL` and `JWT_SECRET` come from `.env.local`, which is git-ignored. The app connects as `grievance_app`, a normal role that owns its database, not the postgres superuser.
 - Login gives the same error for an unknown email and a wrong password.
 - Users are deactivated, not deleted, so their history stays intact.
+- The server only listens on `127.0.0.1`, so other devices on the network cannot reach it. The Next.js 14 line has known advisories that are only fixed in newer major versions, so this keeps the app private until it is upgraded. The image optimizer is also turned off because the app does not use it.
 - The role is stored in the login cookie, so a change to a user's role or active status only takes effect at their next login (at most 8 hours later).
 
-## 14. Testing
+## 14. Important Queries
+
+All of these can be run together with `psql -U grievance_app -h localhost -d grievance_db -f db/04_important_queries.sql`. The file is wrapped in `BEGIN ... ROLLBACK`, so it never changes the data.
+
+| # | Query | What it shows | Used by |
+|---|---|---|---|
+| 1 | `INSERT INTO tickets ... RETURNING` | DML, with the trigger filling `due_at` | Submit complaint |
+| 2 | `CALL auto_assign_ticket(id)` | Stored procedure with a row lock | Submit complaint |
+| 3 | `UPDATE tickets SET status = ...` | DML, validated by the state machine trigger | Ticket actions |
+| 4 | `DELETE FROM ticket_supporters ...` | DML | "Stop following" button |
+| 5 | Ticket list with 4 joins | INNER and LEFT JOIN | `v_ticket_details` |
+| 6 | Department summary | GROUP BY, COUNT, AVG, FILTER | `v_department_stats`, dashboards |
+| 7 | Departments with 2 or more escalated tickets | GROUP BY + HAVING | Admin dashboard |
+| 8 | Tickets slower than the department average | Correlated subquery | Head dashboard |
+| 9 | Join with history vs real count | Why a careless join gives wrong counts | Testing |
+| 10 | Weekly created vs resolved | `generate_series`, scalar subqueries | Admin dashboard |
+| 11 | Full-text search | tsvector, GIN index, `ts_rank` | Keyword search |
+| 12 | Nearest tickets, department suggestion | pgvector cosine distance `<=>` | Duplicate check, suggestion |
+| 13 | `EXPLAIN` | Proves the indexes are used | Testing |
+| 14 | `ALTER TABLE ... ADD / DROP` | DDL on a live table | Demo |
+
+## 15. Application Screenshots
+
+| Screen | File |
+|---|---|
+| Landing page | [01-landing.png](screenshots/01-landing.png) |
+| Login | [02-login.png](screenshots/02-login.png) |
+| Citizen: my tickets | [03-citizen-my-tickets.png](screenshots/03-citizen-my-tickets.png) |
+| Citizen: duplicate check | [04-citizen-new-duplicate-check.png](screenshots/04-citizen-new-duplicate-check.png) |
+| Citizen: followed ticket | [05-ticket-detail-citizen.png](screenshots/05-ticket-detail-citizen.png) |
+| Staff queue | [06-staff-queue.png](screenshots/06-staff-queue.png) |
+| Semantic search | [07-staff-semantic-search.png](screenshots/07-staff-semantic-search.png) |
+| Department head dashboard | [08-head-dashboard.png](screenshots/08-head-dashboard.png) |
+| Ticket detail with assign and history | [09-ticket-detail-head-assign.png](screenshots/09-ticket-detail-head-assign.png) |
+| Admin dashboard | [10-admin-dashboard.png](screenshots/10-admin-dashboard.png) |
+| Manage departments | [11-admin-departments.png](screenshots/11-admin-departments.png) |
+| Manage users | [12-admin-users.png](screenshots/12-admin-users.png) |
+| Notifications | [13-notifications.png](screenshots/13-notifications.png) |
+| Register with all account types | [14-register-all-roles.png](screenshots/14-register-all-roles.png) |
+
+## 16. Testing
 
 See [TESTING.md](TESTING.md): 36 automated database tests plus manual API/UI tests.
 
-## 15. Conclusion and Future Enhancements
+## 17. Conclusion and Future Enhancements
 
 The workflow is enforced inside PostgreSQL, so even a direct SQL `UPDATE` can't skip a step, assign across departments or edit a closed ticket. The vector component deals with the "same problem, different words" case, which keyword search cannot.
 
 Future work:
 
 - schedule `escalate_overdue_tickets()` with **pg_cron** instead of calling it from the app,
+- upgrade to a supported Next.js version and a newer embedding library, which clears the `npm audit` advisories, before hosting the app anywhere public,
 - email/SMS notifications,
 - image attachments,
 - department transfer with its own transition rules,

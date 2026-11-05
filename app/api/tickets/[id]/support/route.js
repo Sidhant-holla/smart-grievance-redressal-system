@@ -2,6 +2,20 @@ import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { requireRole, jsonError, dbError } from '@/lib/api';
 
+// DELETE /api/tickets/:id/support
+// "Stop following" - removes the citizen's row from ticket_supporters
+export async function DELETE(request, { params }) {
+  const { user, error } = await requireRole('citizen');
+  if (error) return error;
+
+  const result = await query('DELETE FROM ticket_supporters WHERE ticket_id = $1 AND user_id = $2', [
+    Number(params.id),
+    user.id,
+  ]);
+  if (result.rowCount === 0) return jsonError('You are not following this ticket', 404);
+  return NextResponse.json({ ok: true });
+}
+
 // POST /api/tickets/:id/support
 // "I have the same problem" - used from the duplicate warning on the
 // submission form, so the citizen joins an existing ticket instead of

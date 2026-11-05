@@ -55,6 +55,18 @@ export default function TicketDetailPage({ params }) {
     load();
   }
 
+  async function stopFollowing() {
+    setError('');
+    const res = await fetch(`/api/tickets/${ticketId}/support`, { method: 'DELETE' });
+    if (res.ok) {
+      // citizens can only open tickets they raised or follow, so go back to the list
+      router.push('/citizen');
+    } else {
+      const result = await res.json();
+      setError(result.error);
+    }
+  }
+
   async function addComment(e) {
     e.preventDefault();
     setError('');
@@ -76,7 +88,7 @@ export default function TicketDetailPage({ params }) {
   if (notFound) return <div className="error">Ticket not found or you do not have access to it.</div>;
   if (!data || !user) return <p className="muted">Loading...</p>;
 
-  const { ticket, history, comments, staffList } = data;
+  const { ticket, history, comments, staffList, hasSupported } = data;
   const s = ticket.status;
   const isOwner = ticket.created_by === user.id;
   const isStaff = user.role === 'staff' || user.role === 'dept_head';
@@ -135,7 +147,7 @@ export default function TicketDetailPage({ params }) {
           </div>
 
           {/* ---------- actions ---------- */}
-          {(canClaim || canAssign || canStart || canResolve || canConfirm || canWithdraw) && (
+          {(canClaim || canAssign || canStart || canResolve || canConfirm || canWithdraw || hasSupported) && (
             <div className="card">
               <h2>Actions</h2>
 
@@ -205,6 +217,14 @@ export default function TicketDetailPage({ params }) {
                     Reopen ticket
                   </button>
                 </>
+              )}
+
+              {hasSupported && (
+                <p>
+                  <button className="secondary" onClick={stopFollowing}>
+                    Stop following this ticket
+                  </button>
+                </p>
               )}
 
               {canWithdraw && (

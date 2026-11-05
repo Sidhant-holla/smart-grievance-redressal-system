@@ -30,12 +30,31 @@ A university complaint system built around the **ticket lifecycle**. Every ticke
 | Embeddings | `all-MiniLM-L6-v2` (384-d) via `@xenova/transformers`, runs locally with no API key |
 | Auth | bcryptjs password hashing, JWT (`jose`) in an httpOnly cookie |
 
-## Documentation
+## Project Deliverables
 
-- [docs/Project_Report.pdf](docs/Project_Report.pdf): the complete project report
-- [docs/DESIGN.md](docs/DESIGN.md): problem statement, requirements, architecture, **ER diagram**, **relational schema**, **data dictionary**, DB justification, lifecycle rules, vector strategy
-- [docs/TESTING.md](docs/TESTING.md): test cases and results
-- [db/](db/): all SQL (DDL, views, functions/triggers/procedures, important queries)
+| Document | What is in it |
+|---|---|
+| [Project report (PDF)](docs/Project_Report.pdf) | Everything below in one file |
+| [Project overview](docs/PROJECT_OVERVIEW.md) | Problem statement, objectives, scope, functional requirements, architecture, conclusion and future work |
+| [Database design](docs/DATABASE_DESIGN.md) | Database choice, ER diagram, ER to relational mapping, relational schema, normalisation, constraints, indexes, views, procedures, triggers, transactions, security, DML coverage |
+| [Data dictionary](docs/DATA_DICTIONARY.md) | Every table and column, generated from the live database |
+| [Vector search](docs/VECTOR_SEARCH.md) | What is embedded, the model, storage, similarity metric, retrieval, tuning on our data |
+| [Important queries](docs/IMPORTANT_QUERIES.md) | Key queries with real results |
+| [Screenshots](docs/SCREENSHOTS.md) | The application, role by role |
+| [Testing](docs/TESTING.md) | Test approach and the problems found, with [database results](docs/TEST_RESULTS_DB.md) and [API results](docs/TEST_RESULTS_API.md) |
+| [Requirements checklist](docs/REQUIREMENTS_CHECKLIST.md) | Every point of the brief and where to show it |
+| [Demo guide](docs/DEMO_GUIDE.md) | Demo flow and viva preparation |
+| [Team split](docs/TEAM_SPLIT.md) | Who did what, and the Git workflow |
+
+### Diagrams
+
+| ER diagram | Relational schema |
+|---|---|
+| ![ER diagram](docs/diagrams/er_diagram.png) | ![Relational schema](docs/diagrams/relational_schema.png) |
+
+| Ticket lifecycle | Architecture |
+|---|---|
+| ![Ticket lifecycle](docs/diagrams/ticket_lifecycle.png) | ![Architecture](docs/diagrams/architecture.png) |
 
 ## Project Structure
 
@@ -45,16 +64,33 @@ db/
   02_views.sql               v_ticket_details, v_department_stats, v_staff_workload
   03_functions_triggers.sql  triggers, stored procedures, escalation, vector functions
   04_important_queries.sql   demo queries (JOIN, GROUP BY/HAVING, subqueries, FTS, vector, EXPLAIN)
+  05_viva_live_demo.sql      commands to run live in the viva
 scripts/
   setup-db.js                runs the SQL files in order
   seed.js, seed-data.js      sample departments, users, 44 tickets (through the real workflow)
-  test-db.js                 36 database tests
+  test-db.js                 36 database tests, writes docs/TEST_RESULTS_DB.md
+  test-api.js                49 API and security tests, writes docs/TEST_RESULTS_API.md
   create-user.js             creates an admin, staff, head or citizen account
-lib/                         db pool, auth, embeddings, escalation helper
+  generate-data-dictionary.js  writes docs/DATA_DICTIONARY.md from the live database
+lib/                         db pool, auth, accounts, embeddings, escalation helper
 app/                         pages (citizen, staff, head, admin, tickets) and app/api routes
 components/                  Navbar, TicketTable, TicketBrowser, DepartmentDashboard
 middleware.js                page protection by role
+docs/                        project documents, diagrams, screenshots, test results
 ```
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Run the app in development mode |
+| `npm run build`, then `npm start` | Run the production build |
+| `npm run db:setup` | Create all tables, views, functions and triggers (deletes existing data) |
+| `npm run db:seed` | Load the sample data |
+| `npm run db:test` | Run 36 database tests and write the results |
+| `npm run test:api` | Run 49 API and security tests against the running app and write the results |
+| `npm run create-user -- <role> "<name>" <email> <password> ["<department>"]` | Create an account from the terminal |
+| `npm run docs:dictionary` | Regenerate the data dictionary |
 
 ## How to Run
 

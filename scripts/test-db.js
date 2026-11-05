@@ -2,6 +2,7 @@
 // Each test runs inside a transaction that is rolled back, so the seed data
 // is not changed (except the concurrency tests, which clean up after themselves).
 
+const fs = require('fs');
 const path = require('path');
 const { Client } = require('pg');
 
@@ -13,8 +14,15 @@ const FAKE_HASH = '$2a$10$' + 'a'.repeat(53);
 const results = [];
 let db;
 
+let area = '';
+
+function section(name) {
+  area = name;
+  console.log(`\n--- ${name} ---`);
+}
+
 function record(name, passed, detail) {
-  results.push({ name, passed, detail });
+  results.push({ id: `T${String(results.length + 1).padStart(2, '0')}`, area, name, passed, detail });
   console.log(`${passed ? 'PASS' : 'FAIL'}  ${name}${detail ? '  ->  ' + detail : ''}`);
 }
 
@@ -77,7 +85,7 @@ async function main() {
   const transportStaff = await id(`SELECT user_id AS id FROM users WHERE email = 'kiran.transport@campus.edu'`);
   const transportHead = await id(`SELECT user_id AS id FROM users WHERE email = 'head.transport@campus.edu'`);
 
-  console.log('\n--- Constraints (data validation at database level) ---');
+  section('Constraints (data validation at database level)');
   await expectError('Invalid email format is rejected',
     `INSERT INTO users (full_name, email, password_hash) VALUES ('Test User', 'not-an-email', 'x')`, [], 'chk_user_email');
   await expectError('Same email with different case is rejected',
@@ -101,7 +109,7 @@ async function main() {
   await expectError('Same citizen cannot support a ticket twice (composite PK)',
     `INSERT INTO ticket_supporters (ticket_id, user_id) SELECT ticket_id, user_id FROM ticket_supporters LIMIT 1`, [], 'ticket_supporters_pkey');
 
-  console.log('\n--- Triggers (workflow enforcement) ---');
+  section('Triggers (workflow enforcement)');
   await expectError('New ticket cannot start as RESOLVED',
     `INSERT INTO tickets (title, description, dept_id, created_by, status) VALUES ('Some title', 'a long enough description here', $1, $2, 'RESOLVED')`,
     [itDept, citizen], 'must start with status OPEN');
@@ -208,7 +216,7 @@ async function main() {
     }
   });
 
-  console.log('\n--- Stored procedures ---');
+  section('Stored procedures');
   await inRollback(async () => {
     const t = await newTicket(db, itDept, citizen);
     await db.query('CALL auto_assign_ticket($1)', [t.ticket_id]);
@@ -228,7 +236,7 @@ async function main() {
     record('No available staff -> ticket stays OPEN in the queue', r.status === 'OPEN', `status=${r.status}`);
   });
 
-  console.log('\n--- Concurrency: two staff pick up the same ticket at the same time ---');
+  section('Concurrency: two staff pick up the same ticket at the same time');
   const c1 = new Client({ connectionString: process.env.DATABASE_URL });
   const c2 = new Client({ connectionString: process.env.DATABASE_URL });
   await c1.connect();
@@ -279,7 +287,7 @@ async function main() {
     await c2.end();
   }
 
-  console.log('\n--- Views / aggregate correctness ---');
+  section('Views / aggregate correctness');
   const real = await db.query('SELECT dept_id, COUNT(*)::int AS n FROM tickets GROUP BY dept_id');
   const view = await db.query('SELECT dept_id, total_tickets::int AS n FROM v_department_stats');
   const match = real.rows.every((r) => view.rows.find((v) => v.dept_id === r.dept_id).n === r.n);
@@ -293,7 +301,7 @@ async function main() {
     wrong.rows[0].joined > itTotal && wrong.rows[0].distinct_tickets === itTotal,
     `JOIN gives ${wrong.rows[0].joined} rows, real ticket count is ${itTotal}`);
 
-  console.log('\n--- Vector similarity (pgvector) ---');
+  section('Vector similarity (pgvector)');
   const dupText = 'Hostel wifi keeps disconnecting. Since last night the internet in my hostel room disconnects every few minutes and I cannot attend online class.';
   const sim = await db.query('SELECT ticket_id, title, round(similarity::numeric, 3) AS s FROM find_similar_tickets($1, 0.5, 3)', [await embed(dupText)]);
   const top = sim.rows[0];
@@ -315,7 +323,7 @@ async function main() {
       `got "${r.rows[0]?.dept_name}" (score ${r.rows[0]?.score})`);
   }
 
-  console.log('\n--- Full-text search vs semantic search ---');
+  section('Full-text search vs semantic search');
   const kw = await db.query(`SELECT COUNT(*)::int AS n FROM tickets WHERE search_vector @@ plainto_tsquery('english', 'internet problem hostel')`);
   const sem = await db.query('SELECT COUNT(*)::int AS n FROM find_similar_tickets($1, 0.45, 10)', [await embed('internet problem hostel')]);
   record('Keyword search needs exact words, semantic search finds related wording',
@@ -323,6 +331,21 @@ async function main() {
 
   const passed = results.filter((r) => r.passed).length;
   console.log(`\n${passed} / ${results.length} tests passed`);
+
+  const when = new Date().toISOString().slice(0, 16).replace('T', ' ');
+  const lines = [
+    '# Database test results',
+    '',
+    `Run on ${when} UTC with \`npm run db:test\`. Each test runs in a transaction that is rolled back.`,
+    '',
+    `**${passed} of ${results.length} passed.**`,
+    '',
+    '| ID | Area | Test case | Result | Detail |',
+    '|---|---|---|---|---|',
+    ...results.map((r) => `| ${r.id} | ${r.area} | ${r.name} | ${r.passed ? 'PASS' : 'FAIL'} | ${String(r.detail ?? '').replace(/\|/g, '\\|')} |`),
+    '',
+  ];
+  fs.writeFileSync(path.join(__dirname, '..', 'docs', 'TEST_RESULTS_DB.md'), lines.join('\n'));
   await db.end();
   process.exit(passed === results.length ? 0 : 1);
 }

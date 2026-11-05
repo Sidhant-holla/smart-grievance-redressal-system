@@ -21,14 +21,14 @@ A university complaint system built around the **ticket lifecycle**. Every ticke
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | Next.js 14 (App Router), React 18, plain CSS |
-| Backend | Next.js Route Handlers (`app/api`), `pg` (node-postgres) |
-| Database | PostgreSQL 18 (works on 16+) |
-| Vector store | pgvector 0.8 (in the same PostgreSQL database) |
-| Embeddings | `all-MiniLM-L6-v2` (384-d) via `@xenova/transformers`, runs locally with no API key |
-| Auth | bcryptjs password hashing, JWT (`jose`) in an httpOnly cookie |
+| Layer        | Technology                                                                              |
+| ------------ | --------------------------------------------------------------------------------------- |
+| Frontend     | Next.js 14 (App Router), React 18, plain CSS                                            |
+| Backend      | Next.js Route Handlers (`app/api`), `pg` (node-postgres)                            |
+| Database     | PostgreSQL 18 (works on 16+)                                                            |
+| Vector store | pgvector 0.8 (in the same PostgreSQL database)                                          |
+| Embeddings   | `all-MiniLM-L6-v2` (384-d) via `@xenova/transformers`, runs locally with no API key |
+| Auth         | bcryptjs password hashing, JWT (`jose`) in an httpOnly cookie                         |
 
 ## Documentation
 
@@ -62,11 +62,13 @@ middleware.js                page protection by role
 - **PostgreSQL 16+ with the pgvector extension**. Pick one option:
 
 **Option A – Docker (easiest)**
+
 ```bash
 docker run -d --name grievance-db -p 5432:5432 -e POSTGRES_PASSWORD=postgres pgvector/pgvector:pg17
 ```
 
 **Option B – Windows without Docker (what we used, via MSYS2)**
+
 ```bash
 # in an MSYS2 UCRT64 shell
 pacman -S mingw-w64-ucrt-x86_64-postgresql mingw-w64-ucrt-x86_64-gcc make git
@@ -75,6 +77,7 @@ cd pgvector && make && make install
 initdb -D ~/pgdata -U postgres -W --auth=scram-sha-256 -E UTF8
 pg_ctl -D ~/pgdata -l ~/pgdata/server.log start
 ```
+
 (With the EDB PostgreSQL installer, build pgvector with Visual Studio's `nmake` as described in the [pgvector README](https://github.com/pgvector/pgvector#windows).)
 
 **Option C – Linux / macOS**
@@ -101,6 +104,7 @@ npm run dev                       # http://localhost:3000
 ```
 
 `.env.local`:
+
 ```
 DATABASE_URL=postgresql://grievance_app:choose_a_password@localhost:5432/grievance_db
 JWT_SECRET=<any long random string>
@@ -110,13 +114,13 @@ JWT_SECRET=<any long random string>
 
 All demo accounts use the password **`Password@123`**.
 
-| Role | Email |
-|---|---|
-| Admin | `admin@campus.edu` |
-| Dept Head (IT) | `head.it@campus.edu` (also `head.hostel`, `head.canteen`, `head.academics`, `head.transport`, `head.maintenance`, `head.accounts`) |
-| Staff (IT) | `ravi.it@campus.edu`, `divya.it@campus.edu` |
-| Staff (Transport, set unavailable) | `kiran.transport@campus.edu` |
-| Citizen | `ananya@student.campus.edu` (also `rahul`, `sneha`, `aditya`, `fatima`, `karthik`, `neha`, `vikram` `@student.campus.edu`) |
+| Role                               | Email                                                                                                                                            |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Admin                              | `admin@campus.edu`                                                                                                                             |
+| Dept Head (IT)                     | `head.it@campus.edu` (also `head.hostel`, `head.canteen`, `head.academics`, `head.transport`, `head.maintenance`, `head.accounts`) |
+| Staff (IT)                         | `ravi.it@campus.edu`, `divya.it@campus.edu`                                                                                                  |
+| Staff (Transport, set unavailable) | `kiran.transport@campus.edu`                                                                                                                   |
+| Citizen                            | `ananya@student.campus.edu` (also `rahul`, `sneha`, `aditya`, `fatima`, `karthik`, `neha`, `vikram` `@student.campus.edu`)     |
 
 ### Things to try in the demo
 
@@ -130,23 +134,24 @@ All demo accounts use the password **`Password@123`**.
    UPDATE tickets SET due_at = now() - interval '1 hour' WHERE ticket_id = 33;
    SELECT escalate_overdue_tickets();
    ```
+
    Then log in as `head.accounts@campus.edu` and check *Notifications*.
 4. **Concurrency**: `npm run db:test` shows the lost update without a lock and the clean error with `claim_ticket`.
 5. **Search**: *Ticket Queue* → search *"elevator"* in keyword mode vs semantic mode.
 
 ## Screenshots
 
-| | |
-|---|---|
+|                                                                                        |                                                                       |
+| -------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
 | ![](docs/screenshots/04-citizen-new-duplicate-check.png) Duplicate check on submission | ![](docs/screenshots/08-head-dashboard.png) Department head dashboard |
-| ![](docs/screenshots/09-ticket-detail-head-assign.png) Ticket detail with history | ![](docs/screenshots/07-staff-semantic-search.png) Semantic search |
+| ![](docs/screenshots/09-ticket-detail-head-assign.png) Ticket detail with history      | ![](docs/screenshots/07-staff-semantic-search.png) Semantic search    |
 
 More in [docs/screenshots](docs/screenshots).
 
 ## Team Contributions
 
-| Member | Work |
-|---|---|
-| **Sidhant Holla** | Next.js setup, DB connection pool, authentication (bcrypt + JWT, middleware), citizen submission form and staff portal, ticket CRUD API routes, state transition UI and role-based actions, head and admin dashboard UI |
+| Member                            | Work                                                                                                                                                                                                                                                                               |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Sidhant Holla**           | Next.js setup, DB connection pool, authentication (bcrypt + JWT, middleware), citizen submission form and staff portal, ticket CRUD API routes, state transition UI and role-based actions, head and admin dashboard UI                                                            |
 | **Krishna Tejas Voruganti** | PostgreSQL + pgvector setup, schema (constraints, indexes), embedding integration and duplicate / department similarity functions, triggers for the state machine and escalation, transactions with row-level locks for assignment, views and aggregate queries for the dashboards |
-| **Both** | ER diagram and normalisation decisions, escalation rules, test data and testing, documentation |
+| **Both**                    | ER diagram and normalisation decisions, escalation rules, test data and testing, documentation                                                                                                                                                                                     |

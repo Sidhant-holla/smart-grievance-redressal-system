@@ -7,6 +7,7 @@ export async function GET() {
   const { user, error } = await requireRole();
   if (error) return error;
 
+  // Newest first, at most 30. Only this user's rows are returned.
   const result = await query(
     `SELECT notification_id, ticket_id, message, is_read, created_at
        FROM notifications

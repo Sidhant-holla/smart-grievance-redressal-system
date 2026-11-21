@@ -22,6 +22,7 @@ export async function GET(request) {
   const { user, error } = await requireRole();
   if (error) return error;
 
+  // Triggers cannot fire on time passing, so overdue tickets are escalated here, before reading.
   await runEscalationCheck();
 
   const params = new URL(request.url).searchParams;
@@ -31,6 +32,9 @@ export async function GET(request) {
   const q = (params.get('q') || '').trim();
   const mode = params.get('mode') || 'keyword';
 
+  // The WHERE clause is built piece by piece from the filters.
+  // Values never go inside the SQL text. They only go in the values array as $1, $2 ...,
+  // which is what prevents SQL injection (requirement 13).
   const conditions = [];
   const values = [];
   // adds a value to the parameter list and returns its placeholder ($1, $2 ...)
@@ -90,6 +94,7 @@ export async function GET(request) {
             LIMIT 200`;
   }
 
+  // sql is the text with placeholders, values are the real data, sent separately.
   const result = await query(sql, values);
   return NextResponse.json({ tickets: result.rows });
 }
@@ -101,6 +106,7 @@ export async function POST(request) {
   const { user, error } = await requireRole('citizen');
   if (error) return error;
 
+  // Reads the form data. Only the citizen who is logged in can create the ticket (user.id).
   const { title, description, location, priority, deptId } = await request.json();
   if (!title || !description || !deptId) return jsonError('Title, description and department are required');
 
@@ -113,6 +119,8 @@ export async function POST(request) {
   }
 
   try {
+    // Requirement 7 (transactions): ticket, embedding and assignment are saved together.
+    // If any step fails, all of them are rolled back.
     const ticket = await withTransaction(async (client) => {
       // closest open ticket, if it is similar enough we link it as a possible duplicate
       const similar = await client.query('SELECT * FROM find_similar_tickets($1, $2, 1)', [
@@ -130,6 +138,7 @@ export async function POST(request) {
       );
       const ticketId = inserted.rows[0].ticket_id;
 
+      // Saves the vector in the same transaction as the ticket, so it can never be missing.
       await client.query('INSERT INTO ticket_embeddings (ticket_id, embedding) VALUES ($1, $2)', [ticketId, embedding]);
 
       // stored procedure: give it to the least busy available staff member

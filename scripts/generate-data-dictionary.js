@@ -49,6 +49,8 @@ const COLUMN_NOTES = {
   'ticket_comments.is_internal': 'TRUE hides the comment from citizens',
 };
 
+// pg_attribute, pg_constraint and pg_indexes are PostgreSQL's own catalog tables.
+// They describe every column, key and index in the database.
 async function main() {
   const db = new Client({ connectionString: process.env.DATABASE_URL });
   await db.connect();

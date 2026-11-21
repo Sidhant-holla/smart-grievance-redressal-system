@@ -21,7 +21,7 @@ Every point of the Level 3 project brief, how we meet it, and where to show it.
 | 13 | Basic security, no plain-text passwords or credentials | bcrypt, enforced by a CHECK. httpOnly cookie, parameterised SQL, secrets in env | Done | [DATABASE_DESIGN.md](DATABASE_DESIGN.md) section 14 |
 | 14 | Project documentation | See the table below | Done | `docs/` |
 | 15 | Git / GitHub with individual commits and a README | Repository and README are done. Commits so far are all from one account, so individual contributions are not yet visible in the history | **Partly** | [TEAM_SPLIT.md](TEAM_SPLIT.md) |
-| 16 | Final demonstration | Every item is mapped below | Done | [DEMO_GUIDE.md](DEMO_GUIDE.md) |
+| 16 | Final demonstration | Every item is mapped below, with demo steps in the README | Done | README, "Things to try in the demo" |
 | 17 | Original design and implementation | Own rules, own design, tuned and tested on our own data | Done | [VECTOR_SEARCH.md](VECTOR_SEARCH.md) section 6, [TESTING.md](TESTING.md) |
 | 18 | Beyond CRUD, each database choice justified | Lifecycle enforced in the database, choices justified by the data | Done | [DATABASE_DESIGN.md](DATABASE_DESIGN.md) section 1 |
 
@@ -55,6 +55,6 @@ Every point of the Level 3 project brief, how we meet it, and where to show it.
 | Important queries and operations | `db/04_important_queries.sql` |
 | Next.js interface | The running app |
 | Database integration | `lib/db.js`, `app/api/` |
-| Advanced database features | `db/05_viva_live_demo.sql` |
+| Advanced database features | `db/05_live_demo.sql` |
 | Test cases | `npm run db:test`, `npm run test:api` |
 | Individual contribution | [TEAM_SPLIT.md](TEAM_SPLIT.md) |

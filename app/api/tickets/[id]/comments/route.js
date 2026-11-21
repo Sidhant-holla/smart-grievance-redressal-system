@@ -17,6 +17,7 @@ export async function POST(request, { params }) {
   const internal = user.role !== 'citizen' && Boolean(isInternal);
 
   try {
+    // Empty or very long comments are rejected by the chk_comment_body constraint.
     await query('INSERT INTO ticket_comments (ticket_id, user_id, body, is_internal) VALUES ($1, $2, $3, $4)', [
       ticket.ticket_id,
       user.id,

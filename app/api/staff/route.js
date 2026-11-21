@@ -7,6 +7,7 @@ export async function GET(request) {
   const { user, error } = await requireRole('dept_head', 'admin');
   if (error) return error;
 
+  // A head always gets their own department, whatever is in the URL.
   const deptId = user.role === 'dept_head' ? user.deptId : new URL(request.url).searchParams.get('deptId');
 
   const result = deptId

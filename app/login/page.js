@@ -3,12 +3,14 @@
 import Link from 'next/link';
 import { useState } from 'react';
 
+// Login form. Each useState holds one value the page needs to remember.
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Runs when the form is submitted. It calls our API route, which checks the password.
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');

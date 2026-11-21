@@ -8,6 +8,7 @@ export async function PATCH(request, { params }) {
   const { error } = await requireRole('admin');
   if (error) return error;
 
+  // Reads the new values. An invalid SLA or head is rejected by the database and shown on the page.
   const { description, slaHours, headId } = await request.json();
 
   try {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 
+// Tells Next.js not to cache this at build time, so new departments appear straight away.
 export const dynamic = 'force-dynamic';
 
 // GET /api/departments/list - only id and name, public because the Register

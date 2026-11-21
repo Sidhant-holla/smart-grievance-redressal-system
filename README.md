@@ -43,7 +43,6 @@ A university complaint system built around the **ticket lifecycle**. Every ticke
 | [Screenshots](docs/SCREENSHOTS.md) | The application, role by role |
 | [Testing](docs/TESTING.md) | Test approach and the problems found, with [database results](docs/TEST_RESULTS_DB.md) and [API results](docs/TEST_RESULTS_API.md) |
 | [Requirements checklist](docs/REQUIREMENTS_CHECKLIST.md) | Every point of the brief and where to show it |
-| [Demo guide](docs/DEMO_GUIDE.md) | Demo flow and viva preparation |
 | [Team split](docs/TEAM_SPLIT.md) | Who did what, and the Git workflow |
 
 ### Diagrams
@@ -64,7 +63,7 @@ db/
   02_views.sql               v_ticket_details, v_department_stats, v_staff_workload
   03_functions_triggers.sql  triggers, stored procedures, escalation, vector functions
   04_important_queries.sql   demo queries (JOIN, GROUP BY/HAVING, subqueries, FTS, vector, EXPLAIN)
-  05_viva_live_demo.sql      commands to run live in the viva
+  05_live_demo.sql           live demonstration of constraints, triggers, procedures, views, vector search
 scripts/
   setup-db.js                runs the SQL files in order
   seed.js, seed-data.js      sample departments, users, 44 tickets (through the real workflow)

@@ -18,6 +18,7 @@ process.loadEnvFile(path.join(__dirname, '..', '.env.local'));
 const DEMO_PASSWORD = 'Password@123';
 const HOUR = 3600 * 1000;
 
+// Same embedding model as lib/embeddings.js. Kept here because this is a plain Node script.
 let extractor;
 async function embed(text) {
   if (!extractor) {
@@ -106,6 +107,7 @@ async function main() {
 
     await db.query('BEGIN');
 
+    // Same duplicate check the real app does when a ticket is submitted.
     const similar = await db.query('SELECT ticket_id FROM find_similar_tickets($1, 0.6, 1)', [embedding]);
     const inserted = await db.query(
       `INSERT INTO tickets (title, description, location, priority, dept_id, created_by, created_at, possible_duplicate_of)
@@ -116,6 +118,7 @@ async function main() {
     await db.query('INSERT INTO ticket_embeddings (ticket_id, embedding) VALUES ($1, $2)', [id, embedding]);
 
     // runs one workflow step, then moves the history row it created back to `at`
+    // Timestamps are moved into the past so the dashboards have realistic numbers.
     async function step(sql, params, at) {
       await db.query(sql, params);
       await db.query(

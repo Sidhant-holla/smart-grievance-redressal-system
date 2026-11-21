@@ -6,6 +6,7 @@ export const metadata = {
   description: 'Complaint tracking with enforced workflow, SLA escalation and duplicate detection',
 };
 
+// The root layout wraps every page, so the navbar appears everywhere.
 export default function RootLayout({ children }) {
   return (
     <html lang="en">

@@ -10,6 +10,7 @@ export async function GET() {
 
   await runEscalationCheck();
 
+  // FILTER counts only the rows that match, so one query gives several totals.
   const totals = await query(
     `SELECT COUNT(*)::int                                              AS total,
             COUNT(*) FILTER (WHERE status NOT IN ('RESOLVED', 'CLOSED'))::int AS open,
@@ -20,6 +21,7 @@ export async function GET() {
        FROM tickets`
   );
 
+  // One row per department, from the view.
   const departments = await query('SELECT * FROM v_department_stats ORDER BY open_tickets DESC, dept_name');
 
   // last 8 weeks: created vs resolved per week.
@@ -51,6 +53,7 @@ export async function GET() {
   );
 
   // same issue reported by many people
+  // supporter_count is calculated in v_ticket_details.
   const mostSupported = await query(
     `SELECT ticket_id, title, dept_name, status, supporter_count
        FROM v_ticket_details

@@ -3,12 +3,14 @@
 import { useEffect, useState } from 'react';
 import TicketBrowser from '@/components/TicketBrowser';
 
+// The three tabs of the queue. Each value is sent to the API as ?scope=
 const TABS = [
   { value: 'mine', label: 'Assigned to me' },
   { value: 'unassigned', label: 'Unassigned queue' },
   { value: 'department', label: 'All department tickets' },
 ];
 
+// Staff queue. Department heads use this page too. Tickets are shown by TicketBrowser.
 export default function StaffPage() {
   const [available, setAvailable] = useState(null);
 
@@ -18,6 +20,7 @@ export default function StaffPage() {
       .then((data) => setAvailable(data.isAvailable));
   }, []);
 
+  // When a staff member is unavailable, auto_assign_ticket skips them.
   async function toggleAvailability() {
     const next = !available;
     await fetch('/api/staff/availability', {

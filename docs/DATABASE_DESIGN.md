@@ -122,7 +122,7 @@ There are two deliberate redundancies, and both are kept correct by triggers:
 | `DROP TABLE` | `db/01_schema.sql` | Lets the schema be rebuilt from scratch |
 | `CREATE VIEW` | `db/02_views.sql` | 3 views |
 | `CREATE INDEX` | `db/01_schema.sql` | 11 indexes |
-| `ALTER` and `DROP` on a live table | `db/05_viva_live_demo.sql` | Adding and removing a column in the viva |
+| `ALTER` and `DROP` on a live table | `db/05_live_demo.sql` | Adding and removing a column during the demo |
 
 ## 8. Constraints for data validation
 

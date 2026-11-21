@@ -13,6 +13,7 @@ export async function PATCH(request, { params }) {
   if (userId === user.id) return jsonError('You cannot deactivate your own account');
 
   const { isActive } = await request.json();
+  // rowCount tells us how many rows changed. 0 means no such user.
   const result = await query('UPDATE users SET is_active = $1 WHERE user_id = $2', [Boolean(isActive), userId]);
   if (result.rowCount === 0) return jsonError('User not found', 404);
   return NextResponse.json({ ok: true });

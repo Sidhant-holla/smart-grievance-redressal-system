@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import TicketBrowser from '@/components/TicketBrowser';
 
+// All tickets for the admin. Passing departments adds the department filter to TicketBrowser.
 export default function AdminTicketsPage() {
   const [departments, setDepartments] = useState(null);
 

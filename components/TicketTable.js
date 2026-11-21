@@ -5,6 +5,7 @@ import { formatDate, timeFromNow } from '@/lib/format';
 // Table of tickets used by the citizen, staff and admin pages.
 // showDept / showCreator hide columns that are not useful for that role.
 // currentUserId (citizen page) marks tickets they follow but did not raise.
+// This component only displays what it is given. It does not fetch any data.
 export default function TicketTable({ tickets, showDept = true, showCreator = true, showScore = false, currentUserId }) {
   if (tickets.length === 0) {
     return <p className="empty">No tickets found.</p>;

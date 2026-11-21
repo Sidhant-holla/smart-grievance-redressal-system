@@ -26,6 +26,7 @@ export async function POST(request, { params }) {
   if (error) return error;
 
   const ticketId = Number(params.id);
+  // Checks the ticket exists, is not the citizen's own, and is still open.
   const ticket = await query(
     `SELECT t.created_by, s.is_open
        FROM tickets t JOIN ticket_statuses s ON s.status_code = t.status

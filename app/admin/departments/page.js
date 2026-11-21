@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+// Add departments and change their SLA and head.
 export default function DepartmentsPage() {
   const [departments, setDepartments] = useState([]);
   const [staff, setStaff] = useState([]);
@@ -22,6 +23,7 @@ export default function DepartmentsPage() {
 
   useEffect(load, []);
 
+  // A bad SLA is rejected by the chk_sla_hours constraint and the error is shown on the page.
   async function createDepartment(e) {
     e.preventDefault();
     setError('');
@@ -40,6 +42,7 @@ export default function DepartmentsPage() {
     load();
   }
 
+  // Saving a head who is not a dept_head of this department is rejected by a trigger.
   async function saveDepartment() {
     setError('');
     const res = await fetch(`/api/departments/${editing.dept_id}`, {

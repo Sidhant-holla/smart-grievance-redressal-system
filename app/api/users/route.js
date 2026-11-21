@@ -8,6 +8,7 @@ export async function GET() {
   const { error } = await requireRole('admin');
   if (error) return error;
 
+  // LEFT JOIN because citizens and admins have no staff row. The subquery counts tickets raised.
   const result = await query(
     `SELECT u.user_id, u.full_name, u.email, u.role, u.is_active, u.created_at,
             s.designation, d.name AS dept_name,
@@ -27,6 +28,7 @@ export async function POST(request) {
 
   const { fullName, email, password, role, deptId, designation } = await request.json();
 
+  // Same checks as the Register page.
   const problem = accountProblem({ fullName, email, password, role, deptId });
   if (problem) return jsonError(problem);
 

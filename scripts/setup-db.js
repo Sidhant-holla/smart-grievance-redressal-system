@@ -8,6 +8,7 @@ const { Client } = require('pg');
 
 process.loadEnvFile(path.join(__dirname, '..', '.env.local'));
 
+// Order matters: views need the tables, and functions need the views.
 const files = ['01_schema.sql', '02_views.sql', '03_functions_triggers.sql'];
 
 async function main() {

@@ -7,6 +7,8 @@ import { jwtVerify } from 'jose';
 const COOKIE_NAME = 'grievance_token';
 
 // which roles may open which section of the site
+// Requirement 11 (roles): this table is the role check for pages.
+// The first part of the URL decides which roles may open it.
 const ROLE_PAGES = {
   '/citizen': ['citizen'],
   '/staff': ['staff', 'dept_head'],
@@ -16,6 +18,7 @@ const ROLE_PAGES = {
   '/notifications': ['citizen', 'staff', 'dept_head', 'admin'],
 };
 
+// Where each role lands after login.
 const HOME_PAGE = {
   citizen: '/citizen',
   staff: '/staff',
@@ -23,6 +26,8 @@ const HOME_PAGE = {
   admin: '/admin',
 };
 
+// Reads the login cookie and checks its signature. Middleware runs on the Edge runtime,
+// so it cannot use the normal database pool and only trusts the signed cookie.
 async function readUser(request) {
   const token = request.cookies.get(COOKIE_NAME)?.value;
   if (!token) return null;
@@ -44,6 +49,7 @@ export async function middleware(request) {
     return NextResponse.next();
   }
 
+  // Find which protected section this URL is in. Other URLs need no check.
   const section = Object.keys(ROLE_PAGES).find((prefix) => pathname.startsWith(prefix));
   if (!section) return NextResponse.next();
 
@@ -54,6 +60,7 @@ export async function middleware(request) {
   return NextResponse.next();
 }
 
+// matcher lists the pages this middleware runs on. API routes do their own checks with requireRole().
 export const config = {
   matcher: ['/', '/login', '/register', '/citizen/:path*', '/staff/:path*', '/head/:path*', '/admin/:path*', '/tickets/:path*', '/notifications'],
 };

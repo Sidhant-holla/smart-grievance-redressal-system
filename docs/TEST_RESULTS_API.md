@@ -1,6 +1,6 @@
 # API and security test results
 
-Run on 2026-11-05 03:45 UTC with `npm run test:api` against the running app.
+Run on 2026-11-05 04:01 UTC with `npm run test:api` against the running app.
 
 **49 of 49 passed.**
 
@@ -18,14 +18,14 @@ Run on 2026-11-05 03:45 UTC with `npm run test:api` against the running app.
 | A10 | Complaint submission | Check finds similar open complaints | At least one match | PASS | 2 matches, top 0.72 |
 | A11 | Complaint submission | Check suggests IT Services | IT Services on top | PASS | IT Services |
 | A12 | Complaint submission | Submit with a 3 character title | Rejected by CHECK | PASS | Title must be at least 5 characters |
-| A13 | Complaint submission | Submit a complaint | Saved and flagged as possible duplicate | PASS | ticket 216, duplicate of 44 |
+| A13 | Complaint submission | Submit a complaint | Saved and flagged as possible duplicate | PASS | ticket 256, duplicate of 44 |
 | A14 | Complaint submission | Auto-assign gives it to available staff | ASSIGNED | PASS | ravi.it@campus.edu |
 | A15 | Ticket lifecycle | Staff who is not the assignee clicks Start | Rejected | PASS | Only the assigned staff member can start work |
 | A16 | Ticket lifecycle | Assignee starts work | OK | PASS |  |
 | A17 | Ticket lifecycle | Citizen withdraws after work has started | Rejected | PASS | Work on this ticket has already started, so it cannot be withdrawn |
 | A18 | Ticket lifecycle | Resolve without a note | Rejected | PASS | Please describe how the issue was resolved |
 | A19 | Ticket lifecycle | Resolve with a note | OK | PASS |  |
-| A20 | Ticket lifecycle | RESOLVED to IN_PROGRESS | Rejected by trigger | PASS | Invalid status change for ticket #216: RESOLVED -> IN_PROGRESS |
+| A20 | Ticket lifecycle | RESOLVED to IN_PROGRESS | Rejected by trigger | PASS | Invalid status change for ticket #256: RESOLVED -> IN_PROGRESS |
 | A21 | Ticket lifecycle | Staff tries to close the citizen's ticket | Rejected | PASS | Only the person who raised the ticket can close it |
 | A22 | Ticket lifecycle | Reopen without a reason | Rejected | PASS | Please say why the issue is not resolved |
 | A23 | Ticket lifecycle | Citizen reopens | OK | PASS |  |
@@ -36,8 +36,8 @@ Run on 2026-11-05 03:45 UTC with `npm run test:api` against the running app.
 | A28 | Ticket lifecycle | Close a ticket that is not resolved | Rejected | PASS | Only a resolved ticket can be closed |
 | A29 | Ticket lifecycle | Withdraw an assigned ticket | OK | PASS |  |
 | A30 | Concurrency and assignment | No available staff in the department | Stays OPEN | PASS | OPEN |
-| A31 | Concurrency and assignment | Two staff pick up the same ticket at the same moment | One succeeds, one gets an error | PASS | Ticket #218 was already picked up by someone else |
-| A32 | Concurrency and assignment | Head assigns to staff of another department | Rejected by trigger | PASS | Staff member 3 does not belong to the department of ticket #218 |
+| A31 | Concurrency and assignment | Two staff pick up the same ticket at the same moment | One succeeds, one gets an error | PASS | Ticket #258 was already picked up by someone else |
+| A32 | Concurrency and assignment | Head assigns to staff of another department | Rejected by trigger | PASS | Staff member 3 does not belong to the department of ticket #258 |
 | A33 | Concurrency and assignment | Staff tries to assign | Rejected | PASS | Only the department head or admin can assign tickets |
 | A34 | Following a ticket | Citizen follows a ticket | OK | PASS |  |
 | A35 | Following a ticket | Follow the same ticket twice | Rejected by composite PK | PASS | You are already following this ticket |

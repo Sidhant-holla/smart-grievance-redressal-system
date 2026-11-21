@@ -28,6 +28,7 @@ export async function POST(request) {
 
   // the citizen cannot support their own ticket or support one twice,
   // so the form needs to know which matches are already theirs
+  // Marks tickets the citizen raised or follows, so the form hides the button for them.
   const ids = similar.rows.map((row) => row.ticket_id);
   const relation = await query(
     `SELECT t.ticket_id,

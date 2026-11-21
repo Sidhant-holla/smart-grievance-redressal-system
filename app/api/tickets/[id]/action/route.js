@@ -18,6 +18,7 @@ export async function POST(request, { params }) {
   const ticket = await loadTicketFor(user, ticketId);
   if (!ticket) return jsonError('Ticket not found', 404);
 
+  // These flags describe who is asking, and are used in the checks below.
   const { action, staffId, rating, comment } = await request.json();
   const isStaff = user.role === 'staff' || user.role === 'dept_head';
   const isManager = user.role === 'dept_head' || user.role === 'admin';
@@ -25,15 +26,19 @@ export async function POST(request, { params }) {
 
   try {
     await withTransaction(async (client) => {
+      // Requirement 7: FOR UPDATE locks this ticket row until COMMIT.
+      // If two people act at once, the second waits here and then sees the new state.
       const locked = await client.query('SELECT * FROM tickets WHERE ticket_id = $1 FOR UPDATE', [ticketId]);
       const current = locked.rows[0];
 
+      // Helper for changing the status. updated_by records who did it, and the trigger copies it into history.
       const setStatus = (status, extraSql = '', extraValues = []) =>
         client.query(
           `UPDATE tickets SET status = $1, updated_by = $2 ${extraSql} WHERE ticket_id = $3`,
           [status, user.id, ticketId, ...extraValues]
         );
 
+      // Helper for saving the resolution or reopen note in the same transaction.
       const addComment = (body, isInternal = false) =>
         client.query('INSERT INTO ticket_comments (ticket_id, user_id, body, is_internal) VALUES ($1, $2, $3, $4)', [
           ticketId,
@@ -42,6 +47,8 @@ export async function POST(request, { params }) {
           isInternal,
         ]);
 
+      // One case per button. The checks here are about WHO may act.
+      // Whether the status change itself is valid is decided by the trigger in the database.
       switch (action) {
         case 'claim': // staff takes an unassigned ticket from the queue
           if (!isStaff) throw new Error('Only staff can pick up tickets');

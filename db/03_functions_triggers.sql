@@ -80,6 +80,7 @@ BEGIN
 
     IF NEW.status <> OLD.status THEN
         -- 1. is this move allowed?
+        -- OLD is the row before the update, NEW is the row after it.
         IF NOT EXISTS (SELECT 1 FROM status_transitions
                         WHERE from_status = OLD.status AND to_status = NEW.status) THEN
             RAISE EXCEPTION 'Invalid status change for ticket #%: % -> %',
@@ -108,6 +109,7 @@ BEGIN
         END IF;
     END IF;
 
+    -- Returning NEW saves the row. Raising an exception cancels the whole statement.
     NEW.updated_at := now();
     RETURN NEW;
 END;
@@ -129,6 +131,7 @@ RETURNS TRIGGER AS $$
 DECLARE
     v_head_id INT;
 BEGIN
+    -- TG_OP tells us which operation fired this trigger. There is no OLD row on INSERT.
     IF TG_OP = 'INSERT' THEN
         INSERT INTO ticket_status_history (ticket_id, old_status, new_status, changed_by, changed_at)
         VALUES (NEW.ticket_id, NULL, NEW.status, NEW.created_by, NEW.created_at);
@@ -334,6 +337,7 @@ BEGIN
         RETURN;
     END IF;
 
+    -- NULL as the actor means the system did it, so history shows "System".
     CALL assign_ticket(p_ticket_id, v_staff_id, NULL);
 END;
 $$;
@@ -356,6 +360,7 @@ BEGIN
      WHERE due_at < now()
        AND status IN ('OPEN', 'ASSIGNED', 'IN_PROGRESS', 'REOPENED');
 
+    -- ROW_COUNT is the number of rows the UPDATE just changed.
     GET DIAGNOSTICS v_count = ROW_COUNT;
     RETURN v_count;
 END;

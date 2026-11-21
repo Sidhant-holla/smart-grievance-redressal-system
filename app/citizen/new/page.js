@@ -25,6 +25,7 @@ async function postJson(url, body) {
 //  1. citizen writes the complaint -> "Check for similar complaints"
 //     (server embeds the text and runs the vector similarity functions)
 //  2. we show possible duplicates + the suggested department, then submit
+// Page state: form holds what was typed, checkResult holds the similar tickets and suggestions.
 export default function NewTicketPage() {
   const router = useRouter();
   const [departments, setDepartments] = useState([]);
@@ -40,6 +41,7 @@ export default function NewTicketPage() {
       .then((data) => setDepartments(data.departments || []));
   }, []);
 
+  // Called on every keystroke to keep the form state up to date.
   function update(field, value) {
     // text changed -> the old similarity check and suggested department are no longer valid
     if (field === 'title' || field === 'description') {
@@ -50,6 +52,7 @@ export default function NewTicketPage() {
     }
   }
 
+  // Step 1: asks the server for similar open tickets and a suggested department (vector search).
   async function checkSimilar(e) {
     e.preventDefault();
     setError('');
@@ -67,6 +70,7 @@ export default function NewTicketPage() {
     }
   }
 
+  // "I have the same problem": follow an existing ticket instead of creating a duplicate.
   async function supportExisting(ticketId) {
     setError('');
     const { ok, data } = await postJson(`/api/tickets/${ticketId}/support`);
@@ -78,6 +82,7 @@ export default function NewTicketPage() {
     setTimeout(() => router.push('/citizen'), 1800);
   }
 
+  // Step 2: saves the ticket. The server stores it, its embedding and assigns staff in one transaction.
   async function submitTicket() {
     setError('');
     if (!form.deptId) {

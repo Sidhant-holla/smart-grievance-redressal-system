@@ -7,6 +7,7 @@ import { timeFromNow } from '@/lib/format';
 
 // Dashboard for one department. The head sees their own department
 // (deptId is ignored by the API), the admin passes a deptId.
+// Shared by the head page and the admin department page.
 export default function DepartmentDashboard({ deptId }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
@@ -22,6 +23,7 @@ export default function DepartmentDashboard({ deptId }) {
   if (!data) return <p className="muted">Loading...</p>;
 
   const { stats, byStatus, byPriority, staff, attention, slowTickets } = data;
+  // The largest count sets the full width of the bars.
   const maxStatus = Math.max(1, ...byStatus.map((s) => s.count));
 
   return (

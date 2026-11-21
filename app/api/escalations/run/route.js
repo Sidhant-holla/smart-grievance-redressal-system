@@ -7,6 +7,7 @@ export async function POST() {
   const { error } = await requireRole('admin');
   if (error) return error;
 
+  // true skips the once-a-minute limit, so it always runs.
   const count = await runEscalationCheck(true);
   return NextResponse.json({ escalated: count });
 }

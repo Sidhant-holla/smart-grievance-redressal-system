@@ -10,12 +10,14 @@ import { accountProblem, createAccount, HOME_PAGE } from '@/lib/users';
 export async function POST(request) {
   const { fullName, email, password, role = 'citizen', deptId, designation, signupCode } = await request.json();
 
+  // Basic checks first, for example password length and a valid role.
   const problem = accountProblem({ fullName, email, password, role, deptId });
   if (problem) return jsonError(problem);
 
   if (role !== 'citizen') {
     const code = process.env.STAFF_SIGNUP_CODE;
     if (!code) return jsonError('Staff sign-up is turned off. Set STAFF_SIGNUP_CODE in .env.local and restart the app.', 403);
+    // Checked on the server, so it cannot be skipped by changing the page.
     if (signupCode !== code) return jsonError('Wrong access code', 403);
   }
 
@@ -26,6 +28,7 @@ export async function POST(request) {
     setLoginCookie(response, token);
     return response;
   } catch (err) {
+    // 23505 is PostgreSQL's error code for breaking a UNIQUE rule.
     if (err.code === '23505') return jsonError('An account with this email already exists', 409);
     return dbError(err);
   }

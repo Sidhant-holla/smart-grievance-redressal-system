@@ -7,6 +7,7 @@ export async function GET() {
   const { error } = await requireRole();
   if (error) return error;
 
+  // LEFT JOIN so a department with no head still appears. The subquery counts its staff.
   const result = await query(
     `SELECT d.dept_id, d.name, d.description, d.sla_hours, d.head_id, u.full_name AS head_name,
             (SELECT COUNT(*) FROM staff s WHERE s.dept_id = d.dept_id)::int AS staff_count

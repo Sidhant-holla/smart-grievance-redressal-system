@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+// Which links each role sees. This only hides links, the real checks are on the server.
 const LINKS = {
   citizen: [
     { href: '/citizen', label: 'My Tickets' },
@@ -24,6 +25,7 @@ const LINKS = {
 
 const ROLE_NAMES = { citizen: 'Citizen', staff: 'Staff', dept_head: 'Dept Head', admin: 'Admin' };
 
+// Top bar shown on every page.
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -40,6 +42,7 @@ export default function Navbar() {
       });
   }, [pathname]);
 
+  // Logging out clears the cookie on the server, because page JavaScript cannot touch an httpOnly cookie.
   async function logout() {
     await fetch('/api/auth/logout', { method: 'POST' });
     setUser(null);

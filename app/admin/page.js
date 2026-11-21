@@ -4,10 +4,12 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { StatusBadge } from '@/components/StatusBadge';
 
+// Admin dashboard: system totals, department table, weekly trend and reports.
 export default function AdminDashboardPage() {
   const [data, setData] = useState(null);
   const [message, setMessage] = useState('');
 
+  // Loads every number on this page from one API call.
   function load() {
     fetch('/api/dashboard/admin')
       .then((res) => res.json())
@@ -16,6 +18,7 @@ export default function AdminDashboardPage() {
 
   useEffect(load, []);
 
+  // Runs escalate_overdue_tickets() now, instead of waiting for the next automatic check.
   async function runEscalation() {
     const res = await fetch('/api/escalations/run', { method: 'POST' });
     const result = await res.json();
@@ -26,6 +29,7 @@ export default function AdminDashboardPage() {
   if (!data) return <p className="muted">Loading...</p>;
 
   const { totals, departments, weekly, problemDepartments, mostSupported, topStaff } = data;
+  // The biggest value sets the full width of the bars in the weekly table.
   const maxWeekly = Math.max(1, ...weekly.map((w) => Math.max(w.created, w.resolved)));
 
   return (

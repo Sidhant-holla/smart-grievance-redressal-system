@@ -55,6 +55,7 @@ SELECT
     d.name                                                        AS dept_name,
     d.sla_hours,
     COUNT(t.ticket_id)                                            AS total_tickets,
+    -- FILTER counts only the rows that match the condition, so one query can give many totals.
     COUNT(t.ticket_id) FILTER (WHERE s.is_open)                   AS open_tickets,
     COUNT(t.ticket_id) FILTER (WHERE t.status = 'ESCALATED')      AS currently_escalated,
     COUNT(t.ticket_id) FILTER (WHERE t.escalation_count > 0)      AS ever_escalated,
@@ -62,9 +63,11 @@ SELECT
     ROUND(AVG(EXTRACT(EPOCH FROM (t.resolved_at - t.created_at)) / 3600)::numeric, 1)
                                                                   AS avg_resolution_hours,
     ROUND(AVG(t.rating)::numeric, 2)                              AS avg_rating,
+    -- NULLIF avoids dividing by zero for a department with no resolved tickets.
     ROUND(100.0 * COUNT(t.ticket_id) FILTER (WHERE t.resolved_at <= t.due_at)
           / NULLIF(COUNT(t.resolved_at), 0), 1)                   AS within_sla_pct
 FROM departments d
+-- LEFT JOIN keeps departments that have no tickets yet, with a count of 0.
 LEFT JOIN tickets         t ON t.dept_id     = d.dept_id
 LEFT JOIN ticket_statuses s ON s.status_code = t.status
 GROUP BY d.dept_id, d.name, d.sla_hours;
@@ -96,5 +99,6 @@ FROM staff st
 JOIN users       u ON u.user_id = st.staff_id
 JOIN departments d ON d.dept_id = st.dept_id
 LEFT JOIN tickets t ON t.assigned_to = st.staff_id
+-- Every column that is not inside COUNT or AVG must be listed in GROUP BY.
 GROUP BY st.staff_id, u.full_name, u.email, u.role, u.is_active,
          st.dept_id, d.name, st.designation, st.is_available;

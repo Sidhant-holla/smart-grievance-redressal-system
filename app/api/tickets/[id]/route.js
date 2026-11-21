@@ -11,6 +11,7 @@ export async function GET(request, { params }) {
   const ticket = await loadTicketFor(user, Number(params.id));
   if (!ticket) return jsonError('Ticket not found', 404);
 
+  // COALESCE shows "System" when changed_by is NULL, which means the escalation function did it.
   const history = await query(
     `SELECT h.history_id, h.old_status, h.new_status, h.changed_at,
             COALESCE(cb.full_name, 'System') AS changed_by_name,
@@ -24,6 +25,7 @@ export async function GET(request, { params }) {
   );
 
   // citizens must not see internal staff notes
+  // $2 is TRUE for staff. For citizens it is FALSE, so internal notes are filtered out in SQL.
   const comments = await query(
     `SELECT c.comment_id, c.body, c.is_internal, c.created_at, u.full_name, u.role
        FROM ticket_comments c

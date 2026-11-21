@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+// Landing page. It has no database calls. Logged in users are redirected away by middleware.js.
 export default function HomePage() {
   return (
     <>

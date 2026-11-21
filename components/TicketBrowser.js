@@ -5,6 +5,7 @@ import TicketTable from './TicketTable';
 
 // Ticket list with tabs, status filter and keyword / semantic search.
 // Used by the staff queue and the admin "All Tickets" page.
+// Each useState below is one filter. Changing a filter reloads the list.
 export default function TicketBrowser({ tabs, departments }) {
   const [scope, setScope] = useState(tabs ? tabs[0].value : '');
   const [status, setStatus] = useState('');
@@ -15,6 +16,7 @@ export default function TicketBrowser({ tabs, departments }) {
   const [loading, setLoading] = useState(true);
   const [activeSearch, setActiveSearch] = useState('');
 
+  // Builds the URL from the filters and calls GET /api/tickets, which builds the SQL.
   async function load(searchText = activeSearch) {
     setLoading(true);
     const params = new URLSearchParams();
@@ -31,11 +33,13 @@ export default function TicketBrowser({ tabs, departments }) {
     setLoading(false);
   }
 
+  // Reload whenever the tab, status or department changes.
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scope, status, deptId]);
 
+  // Search only runs when the button is pressed, not on every keystroke.
   function onSearch(e) {
     e.preventDefault();
     setActiveSearch(search);

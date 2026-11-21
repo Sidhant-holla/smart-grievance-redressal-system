@@ -1,8 +1,9 @@
 -- =====================================================================
---  05_viva_live_demo.sql
---  Commands to run live in the viva. Copy them into psql one block at a
---  time, or run the whole file:
---      psql -U grievance_app -h localhost -d grievance_db -f db/05_viva_live_demo.sql
+--  05_live_demo.sql
+--  Demonstrates the database rules live: DDL, constraints, the state
+--  machine trigger, procedures, escalation, views, vector search and
+--  EXPLAIN. Copy the blocks into psql one at a time, or run the whole file:
+--      psql -U grievance_app -h localhost -d grievance_db -f db/05_live_demo.sql
 --  Everything is inside BEGIN ... ROLLBACK, so no data is changed.
 --  Some statements are meant to fail. ON_ERROR_ROLLBACK lets the script
 --  carry on after showing the error.
@@ -31,12 +32,12 @@ UPDATE departments SET sla_hours = 1000 WHERE name = 'IT Services';
 \echo
 \echo '=== 3. State machine: a ticket cannot skip steps ==='
 INSERT INTO tickets (title, description, dept_id, created_by)
-VALUES ('Viva demo ticket', 'A complaint created during the viva to show the workflow.',
+VALUES ('Demo ticket', 'A complaint created during the demo to show the workflow.',
         (SELECT dept_id FROM departments WHERE name = 'IT Services'),
         (SELECT user_id FROM users WHERE email = 'ananya@student.campus.edu'));
 
 -- must fail: OPEN -> RESOLVED is not in status_transitions
-UPDATE tickets SET status = 'RESOLVED' WHERE title = 'Viva demo ticket';
+UPDATE tickets SET status = 'RESOLVED' WHERE title = 'Demo ticket';
 
 -- must fail: a new ticket has to start as OPEN
 INSERT INTO tickets (title, description, dept_id, created_by, status)
@@ -47,22 +48,22 @@ UPDATE tickets SET title = 'Changed title' WHERE ticket_id = (SELECT MIN(ticket_
 
 \echo
 \echo '=== 4. Stored procedure: auto-assign, then history written by the trigger ==='
-SELECT ticket_id, status, due_at FROM tickets WHERE title = 'Viva demo ticket';
-SELECT ticket_id AS demo_id FROM tickets WHERE title = 'Viva demo ticket' \gset
+SELECT ticket_id, status, due_at FROM tickets WHERE title = 'Demo ticket';
+SELECT ticket_id AS demo_id FROM tickets WHERE title = 'Demo ticket' \gset
 CALL auto_assign_ticket(:demo_id);
 SELECT old_status, new_status, changed_at
   FROM ticket_status_history
- WHERE ticket_id = (SELECT ticket_id FROM tickets WHERE title = 'Viva demo ticket')
+ WHERE ticket_id = (SELECT ticket_id FROM tickets WHERE title = 'Demo ticket')
  ORDER BY history_id;
 
 \echo
 \echo '=== 5. Escalation: make it overdue, run the check ==='
-UPDATE tickets SET due_at = now() - interval '1 hour' WHERE title = 'Viva demo ticket';
+UPDATE tickets SET due_at = now() - interval '1 hour' WHERE title = 'Demo ticket';
 SELECT escalate_overdue_tickets() AS tickets_escalated;
-SELECT status, escalation_count FROM tickets WHERE title = 'Viva demo ticket';
+SELECT status, escalation_count FROM tickets WHERE title = 'Demo ticket';
 SELECT u.full_name, n.message
   FROM notifications n JOIN users u ON u.user_id = n.user_id
- WHERE n.ticket_id = (SELECT ticket_id FROM tickets WHERE title = 'Viva demo ticket');
+ WHERE n.ticket_id = (SELECT ticket_id FROM tickets WHERE title = 'Demo ticket');
 
 \echo
 \echo '=== 6. Views ==='

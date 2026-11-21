@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+// Starting values of the form. "citizen" is the default account type.
 const EMPTY_FORM = {
   fullName: '',
   email: '',
@@ -14,15 +15,19 @@ const EMPTY_FORM = {
   signupCode: '',
 };
 
+// Register page for all 4 roles. Extra fields appear depending on the account type.
 export default function RegisterPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [departments, setDepartments] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // These decide which extra fields to show on the form.
+  // The real access code check is on the server, in app/api/auth/register/route.js.
   const isCitizen = form.role === 'citizen';
   const needsDepartment = form.role === 'staff' || form.role === 'dept_head';
 
+  // Runs once when the page opens: loads the department dropdown.
   useEffect(() => {
     fetch('/api/departments/list')
       .then((res) => res.json())
@@ -33,6 +38,7 @@ export default function RegisterPage() {
     setForm({ ...form, [field]: value });
   }
 
+  // Sends the form to the API. The server validates everything again, the form is only a convenience.
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');

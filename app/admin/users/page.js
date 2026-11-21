@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react';
 import { formatDate } from '@/lib/format';
 
+// Starting values of the "Add a user" form.
 const EMPTY_FORM = { fullName: '', email: '', password: '', role: 'staff', deptId: '', designation: '' };
 
+// Admin page to list users, create any role, and activate or deactivate accounts.
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -26,6 +28,7 @@ export default function UsersPage() {
       .then((data) => setDepartments(data.departments || []));
   }, []);
 
+  // No access code is needed here, because the API checks this person is an admin.
   async function createUser(e) {
     e.preventDefault();
     setError('');
@@ -45,6 +48,7 @@ export default function UsersPage() {
     load();
   }
 
+  // Users are deactivated instead of deleted, so their tickets and history stay intact.
   async function toggleActive(u) {
     setError('');
     const res = await fetch(`/api/users/${u.user_id}`, {

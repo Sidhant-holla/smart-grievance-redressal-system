@@ -14,6 +14,7 @@ export async function GET(request) {
 
   await runEscalationCheck();
 
+  // Totals, resolution time, SLA % and rating come from the v_department_stats view.
   const stats = await query('SELECT * FROM v_department_stats WHERE dept_id = $1', [deptId]);
   if (stats.rowCount === 0) return jsonError('Department not found', 404);
 
@@ -36,6 +37,7 @@ export async function GET(request) {
     [deptId]
   );
 
+  // Workload per staff member, from the v_staff_workload view.
   const staff = await query('SELECT * FROM v_staff_workload WHERE dept_id = $1 ORDER BY active_tickets DESC', [deptId]);
 
   // tickets the head should look at first

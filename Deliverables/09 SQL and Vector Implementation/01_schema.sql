@@ -56,6 +56,7 @@ CREATE TABLE users (
 );
 
 -- emails must be unique ignoring case (Rahul@x.com and rahul@x.com are the same person)
+-- This is an expression index: it indexes lower(email), not email itself.
 CREATE UNIQUE INDEX idx_users_email_lower ON users (lower(email));
 
 
@@ -99,6 +100,7 @@ INSERT INTO ticket_statuses (status_code, label, is_open, sort_order) VALUES
     ('RESOLVED',    'Resolved',    FALSE, 6),
     ('CLOSED',      'Closed',      FALSE, 7);
 
+-- Composite primary key: the pair (from, to) must be unique, which also stops duplicate rules.
 CREATE TABLE status_transitions (
     from_status  VARCHAR(20) NOT NULL REFERENCES ticket_statuses(status_code),
     to_status    VARCHAR(20) NOT NULL REFERENCES ticket_statuses(status_code),
@@ -158,9 +160,11 @@ CREATE TABLE tickets (
     CONSTRAINT chk_ticket_priority    CHECK (priority IN ('LOW', 'MEDIUM', 'HIGH')),
     CONSTRAINT chk_escalation_count   CHECK (escalation_count >= 0),
     CONSTRAINT chk_rating_range       CHECK (rating BETWEEN 1 AND 5),
+    -- Cross-column rule: a rating is only allowed once the ticket is CLOSED.
     CONSTRAINT chk_rating_only_closed CHECK (rating IS NULL OR status = 'CLOSED'),
     CONSTRAINT chk_resolved_time      CHECK (resolved_at IS NULL OR resolved_at >= created_at),
     CONSTRAINT chk_resolved_has_time  CHECK (status <> 'RESOLVED' OR resolved_at IS NOT NULL),
+    -- Reads as: if status is ASSIGNED or IN_PROGRESS, then assigned_to must be filled in.
     CONSTRAINT chk_assigned_has_staff CHECK (status NOT IN ('ASSIGNED', 'IN_PROGRESS') OR assigned_to IS NOT NULL),
     CONSTRAINT chk_not_self_duplicate CHECK (possible_duplicate_of <> ticket_id)
 );
@@ -170,6 +174,7 @@ CREATE TABLE tickets (
 -- TICKET EMBEDDINGS  (vector part of the system - pgvector)
 -- 384 dimensions = output size of the all-MiniLM-L6-v2 sentence model
 -- ---------------------------------------------------------------------
+-- ON DELETE CASCADE: deleting a ticket also deletes its vector.
 CREATE TABLE ticket_embeddings (
     ticket_id   INT PRIMARY KEY REFERENCES tickets(ticket_id) ON DELETE CASCADE,
     embedding   VECTOR(384) NOT NULL,

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { formatDate } from '@/lib/format';
 
+// Shows notifications. These rows are created by the ticket_after_change trigger.
 export default function NotificationsPage() {
   const [items, setItems] = useState(null);
 

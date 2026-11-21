@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { StatusBadge, PriorityBadge } from '@/components/StatusBadge';
 import { formatDate, timeFromNow } from '@/lib/format';
 
+// Ticket detail page, shared by all 4 roles. Which buttons appear depends on role and status.
 export default function TicketDetailPage({ params }) {
   const router = useRouter();
   const ticketId = params.id;
@@ -21,6 +22,7 @@ export default function TicketDetailPage({ params }) {
   const [comment, setComment] = useState('');
   const [internal, setInternal] = useState(false);
 
+  // Loads the ticket with its history, comments and staff list.
   async function load() {
     const res = await fetch(`/api/tickets/${ticketId}`);
     if (!res.ok) {
@@ -38,6 +40,8 @@ export default function TicketDetailPage({ params }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticketId]);
 
+  // Runs a lifecycle action: claim, assign, start, resolve, reopen, close or withdraw.
+  // If the database rejects it, the error from the trigger or procedure is shown on the page.
   async function doAction(action, extra = {}) {
     setError('');
     const res = await fetch(`/api/tickets/${ticketId}/action`, {
@@ -55,6 +59,7 @@ export default function TicketDetailPage({ params }) {
     load();
   }
 
+  // Runs the DELETE in the application (requirement 6).
   async function stopFollowing() {
     setError('');
     const res = await fetch(`/api/tickets/${ticketId}/support`, { method: 'DELETE' });
@@ -67,6 +72,7 @@ export default function TicketDetailPage({ params }) {
     }
   }
 
+  // Adds a public comment, or an internal note that citizens cannot see.
   async function addComment(e) {
     e.preventDefault();
     setError('');
@@ -88,6 +94,7 @@ export default function TicketDetailPage({ params }) {
   if (notFound) return <div className="error">Ticket not found or you do not have access to it.</div>;
   if (!data || !user) return <p className="muted">Loading...</p>;
 
+  // s is the current status. The values below decide who sees which button.
   const { ticket, history, comments, staffList, hasSupported } = data;
   const s = ticket.status;
   const isOwner = ticket.created_by === user.id;

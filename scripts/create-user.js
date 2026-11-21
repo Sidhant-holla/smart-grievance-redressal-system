@@ -16,6 +16,7 @@ process.loadEnvFile(path.join(__dirname, '..', '.env.local'));
 const USAGE = `Usage: npm run create-user -- <role> "<full name>" <email> <password> ["<department>"]
 Role is admin, staff, dept_head or citizen. Staff and dept_head need a department.`;
 
+// Creates the account. process.argv holds the values typed after the npm command.
 async function main() {
   const [role, fullName, email, password, department] = process.argv.slice(2);
 

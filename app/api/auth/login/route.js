@@ -5,6 +5,7 @@ import { createToken, setLoginCookie } from '@/lib/auth';
 import { jsonError } from '@/lib/api';
 import { HOME_PAGE } from '@/lib/users';
 
+// POST /api/auth/login - checks the email and password, then sets the login cookie.
 export async function POST(request) {
   const { email, password } = await request.json();
   if (!email || !password) return jsonError('Email and password are required');
@@ -30,6 +31,7 @@ export async function POST(request) {
     return jsonError('This account is not linked to a department. Please ask the admin to add it to the staff table.', 403);
   }
 
+  // Password is correct: create the signed token and send it back in a cookie.
   const token = await createToken(user);
   const response = NextResponse.json({ role: user.role, redirect: HOME_PAGE[user.role] });
   setLoginCookie(response, token);
